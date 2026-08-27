@@ -28,6 +28,7 @@ The architecture spec deferred P2's design until refresh speed was known. It is 
 - **Status colours:** issue `(255,30,30)`, question `(255,215,0)`, done `(0,230,80)`, running `(60,120,255)`. **Never grey** — it renders as washed-out lavender.
 - **Ordering is pure alphabetical by session name.** Not by status, not by stage count: a row must only move when a session appears or disappears.
 - **Nothing identifying in the repo.** No MAC addresses, no hostnames, no capture files. Panel address from `DOTDISPLAY_MAC`; hwmon URL from `DOTDISPLAY_HWMON_URL`.
+- **Use builtin generics (`list[dict]`, `dict | None`), not `typing.List`/`Optional`.** ruff's `UP` rules are enabled and reject the legacy spelling.
 - **Runtime dependencies stay exactly `bleak`, `pillow`, `requests`.** `tests/test_licensing.py` fails the build otherwise.
 - **ccusage must be cached.** It parses ~1,160 transcript files; never call it from the poll loop.
 - **Only one process may own the radio.** `sensmonlight-idotmatrix-agent.service` must be stopped before the daemon starts (Task 6).
@@ -179,8 +180,6 @@ panel -- see the architecture design. Do not adjust them without
 re-photographing the result.
 """
 
-from typing import Dict, List, Optional
-
 from PIL import Image, ImageDraw, ImageFont
 
 W = H = 64
@@ -253,7 +252,7 @@ def _right(draw, text, font, y, colour):
               font=font, fill=colour)
 
 
-def _draw_header(draw, font, header: Optional[dict]) -> int:
+def _draw_header(draw, font, header: dict | None) -> int:
     """Shared by BOTH screens: the five-hour window is persistent context and
     must not vanish when the board switches views. Returns the content top."""
     if not header:
@@ -266,7 +265,7 @@ def _draw_header(draw, font, header: Optional[dict]) -> int:
     return 12
 
 
-def render_sessions(sessions: List[dict], header: Optional[dict]) -> Image.Image:
+def render_sessions(sessions: list[dict], header: dict | None) -> Image.Image:
     img, draw = _canvas()
     font = _font()
     y = _draw_header(draw, font, header)
@@ -291,8 +290,8 @@ def render_sessions(sessions: List[dict], header: Optional[dict]) -> Image.Image
     return img
 
 
-def render_idle(stats: Dict[str, int], trends: Dict[str, bool],
-                header: Optional[dict]) -> Image.Image:
+def render_idle(stats: dict[str, int], trends: dict[str, bool],
+                header: dict | None) -> Image.Image:
     img, draw = _canvas()
     font = _font()
     y = _draw_header(draw, font, header)
