@@ -152,3 +152,69 @@ def test_discover_lists_only_panels(capsys, mocker):
     out = capsys.readouterr().out
     assert "IDM-234849" in out
     assert "Headphones" not in out
+
+
+def _panel_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path / "sessions"))
+    monkeypatch.setenv("DOTDISPLAY_MAC", "AA:BB:CC:DD:EE:FF")
+
+
+def test_a_command_is_queued_when_the_daemon_holds_the_radio(
+        tmp_path, monkeypatch, mocker):
+    """The whole point: a script must not have to stop the daemon."""
+    _panel_env(tmp_path, monkeypatch)
+    mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
+    mocker.patch("dotdisplay.queue.await_result", return_value={"status": "done"})
+    connect = mocker.patch("dotdisplay.ble.PanelClient")
+    assert cli.main(["power", "on"]) == 0
+    connect.assert_not_called()          # queued, not connected
+
+
+def test_a_command_connects_directly_without_a_daemon(
+        tmp_path, monkeypatch, mocker):
+    _panel_env(tmp_path, monkeypatch)
+    mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=False)
+
+    class FakePanel:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def power(self, on):
+            pass
+
+    mocker.patch("dotdisplay.ble.PanelClient", return_value=FakePanel())
+    assert cli.main(["power", "on"]) == 0
+
+
+def test_a_queue_timeout_is_reported_not_swallowed(
+        tmp_path, monkeypatch, mocker, capsys):
+    _panel_env(tmp_path, monkeypatch)
+    mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
+    mocker.patch("dotdisplay.queue.await_result", return_value=None)
+    assert cli.main(["power", "on"]) == 1
+    assert "timed out" in capsys.readouterr().err
+
+
+def test_json_output_is_machine_readable(tmp_path, monkeypatch, mocker, capsys):
+    _panel_env(tmp_path, monkeypatch)
+    mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
+    mocker.patch("dotdisplay.queue.await_result", return_value={"status": "done"})
+    assert cli.main(["--json", "power", "on"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "done"
+
+
+@pytest.mark.parametrize("args", [
+    ["text", "HELLO"],
+    ["brightness", "40"],
+    ["pixel", "1", "2", "ff0000"],
+    ["fill", "00ff00"],
+    ["clear"],
+])
+def test_every_command_reaches_the_queue(args, tmp_path, monkeypatch, mocker):
+    _panel_env(tmp_path, monkeypatch)
+    mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
+    mocker.patch("dotdisplay.queue.await_result", return_value={"status": "done"})
+    assert cli.main(args) == 0

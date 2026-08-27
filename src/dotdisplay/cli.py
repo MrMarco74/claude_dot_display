@@ -24,6 +24,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Show your Claude Code sessions on an iDotMatrix LED panel.",
     )
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--json", action="store_true",
+                        help="print one JSON object instead of prose")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("daemon", help="run the board")
@@ -43,6 +45,26 @@ def build_parser() -> argparse.ArgumentParser:
     send.add_argument("image")
 
     sub.add_parser("discover", help="scan for iDotMatrix panels in range")
+
+    text = sub.add_parser("text", help="show text on the panel")
+    text.add_argument("text")
+    text.add_argument("--colour", help="six hex digits, default white")
+
+    bright = sub.add_parser("brightness", help="set brightness 0-100")
+    bright.add_argument("percent", type=int)
+
+    power = sub.add_parser("power", help="turn the panel on or off")
+    power.add_argument("state", choices=["on", "off"])
+
+    pixel = sub.add_parser("pixel", help="light one pixel")
+    pixel.add_argument("x", type=int)
+    pixel.add_argument("y", type=int)
+    pixel.add_argument("colour")
+
+    fill = sub.add_parser("fill", help="fill the panel with one colour")
+    fill.add_argument("colour")
+
+    sub.add_parser("clear", help="blank the panel")
 
     check = sub.add_parser(
         "check", help="show a code on the panel to confirm the address")
@@ -233,6 +255,57 @@ def _cmd_check(args) -> int:
     return 0
 
 
+def _run_command(command: dict, as_json: bool) -> int:
+    """Queue it if the daemon holds the radio, otherwise connect directly.
+
+    A script should not have to know which of those is the case -- that is
+    the entire reason the local queue exists.
+    """
+    import asyncio
+
+    from dotdisplay import commands, queue
+    from dotdisplay.ble import PanelClient
+    from dotdisplay.config import Config
+
+    config = Config.from_env()
+    if not config.mac:
+        print("DOTDISPLAY_MAC is not set. Run 'dotdisplay discover'.",
+              file=sys.stderr)
+        return 1
+
+    if queue.daemon_is_alive(config):
+        request_id = queue.submit(config, command)
+        result = queue.await_result(config, request_id, timeout_s=60)
+        if result is None:
+            print("timed out waiting for the board daemon", file=sys.stderr)
+            return 1
+    else:
+        async def go():
+            async with PanelClient(config.mac) as panel:
+                return await commands.execute(panel, command)
+
+        try:
+            result = {"status": "done", "result": asyncio.run(go())}
+        except Exception as exc:      # noqa: BLE001 - report, no traceback
+            result = {"status": "error", "message": str(exc)}
+
+    if as_json:
+        print(json.dumps(result))
+    elif result.get("status") == "error":
+        print(f"dotdisplay: {result.get('message')}", file=sys.stderr)
+    return 0 if result.get("status") == "done" else 1
+
+
+_PANEL_COMMANDS = {
+    "text": lambda a: {"type": "text", "text": a.text, "colour": a.colour},
+    "brightness": lambda a: {"type": "brightness", "percent": a.percent},
+    "power": lambda a: {"type": "power", "on": a.state == "on"},
+    "pixel": lambda a: {"type": "pixel", "x": a.x, "y": a.y, "colour": a.colour},
+    "fill": lambda a: {"type": "fill", "colour": a.colour},
+    "clear": lambda a: {"type": "clear"},
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -247,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_discover()
     if args.command == "check":
         return _cmd_check(args)
+    if args.command in _PANEL_COMMANDS:
+        return _run_command(_PANEL_COMMANDS[args.command](args), args.json)
 
     # No subcommand is not success. print_usage() defaults to stdout, but a
     # failure path belongs on stderr.
