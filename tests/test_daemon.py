@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 
 import pytest
@@ -177,3 +178,30 @@ async def test_a_claim_failure_ends_the_drain_quietly(cfg, mocker):
     mocker.patch("dotdisplay.daemon.sources.claim_command",
                  side_effect=requests.exceptions.ConnectionError("down"))
     assert await d.serve_commands(cfg, FakePanel()) == 0
+
+
+async def test_a_stop_signal_ends_the_loop_cleanly(cfg, mocker):
+    """systemd stops the service with SIGTERM. Without handling it the
+    process dies mid-connection and BlueZ keeps holding the link -- the panel
+    then reports Connected while nothing owns it, and the next start cannot
+    find the device. Seen on hardware."""
+    import signal
+
+    mocker.patch("dotdisplay.daemon.sources.read_sessions", return_value=[])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    mocker.patch("dotdisplay.daemon.sources.ccusage_stats", return_value={})
+    mocker.patch("dotdisplay.daemon.sources.trends", return_value={})
+
+    class Ctx:
+        async def __aenter__(self):
+            return FakePanel()
+
+        async def __aexit__(self, *exc):
+            return False
+
+    mocker.patch("dotdisplay.daemon.PanelClient", return_value=Ctx())
+
+    task = asyncio.create_task(d.run(dataclasses.replace(cfg, poll_s=0.01)))
+    await asyncio.sleep(0.05)
+    signal.raise_signal(signal.SIGTERM)
+    assert await asyncio.wait_for(task, timeout=2) == 0

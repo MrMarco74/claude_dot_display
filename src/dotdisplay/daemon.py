@@ -5,7 +5,9 @@ Reconnecting per operation would dominate a five-second loop.
 """
 
 import asyncio
+import contextlib
 import logging
+import signal
 from dataclasses import dataclass
 
 from dotdisplay import render, sources
@@ -62,6 +64,10 @@ async def tick(config: Config, board: Board, panel) -> bool:
         return False
 
     board.last_sent = pixels
+    # Logged at INFO on purpose: this is the only externally visible sign that
+    # the board changed, and it is what makes "a quiet board sends nothing"
+    # something you can actually check rather than assume.
+    logger.info("panel updated")
     return True
 
 
@@ -121,20 +127,38 @@ async def serve_commands(config: Config, panel, board: Board | None = None) -> i
             board.last_sent = None
 
 
+def _install_stop_handler() -> asyncio.Event:
+    """Return an Event set on SIGTERM or SIGINT.
+
+    Without this, systemd's SIGTERM kills the process mid-connection and BlueZ
+    keeps holding the link: the panel then reports Connected while no process
+    owns it, and the next start cannot find the device at all. Observed on
+    hardware, not hypothetical.
+    """
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        with contextlib.suppress(NotImplementedError, ValueError):
+            loop.add_signal_handler(sig, stop.set)
+    return stop
+
+
 async def run(config: Config) -> int:
     if not config.mac:
         raise SystemExit("DOTDISPLAY_MAC is required")
 
     board = Board()
+    stop = _install_stop_handler()
     logger.info("watching %s every %.1fs", config.state_dir, config.poll_s)
-    while True:
+    while not stop.is_set():
         try:
             async with PanelClient(config.mac) as panel:
                 logger.info("panel connected")
-                while True:
+                while not stop.is_set():
                     await serve_commands(config, panel, board)
                     await tick(config, board, panel)
-                    await asyncio.sleep(config.poll_s)
+                    with contextlib.suppress(TimeoutError):
+                        await asyncio.wait_for(stop.wait(), config.poll_s)
         except Exception as exc:              # noqa: BLE001 - unattended loop
             # Out of range, powered off, or the radio was taken. All normal.
             logger.warning("panel unavailable (%s); retrying in %.0fs",
@@ -143,4 +167,8 @@ async def run(config: Config) -> int:
             # a cached "already sent" value would be a lie and could leave the
             # board permanently stale.
             board.last_sent = None
-            await asyncio.sleep(RECONNECT_DELAY_S)
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), RECONNECT_DELAY_S)
+
+    logger.info("stopping; releasing the panel")
+    return 0
