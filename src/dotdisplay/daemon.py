@@ -121,10 +121,17 @@ async def serve_commands(config: Config, panel, board: Board | None = None) -> i
             logger.warning("could not report a result: %s", exc)
 
         ran += 1
-        if board is not None:
-            # The command painted over the board; forget what we sent so the
-            # next tick re-renders rather than seeing "no change".
-            board.last_sent = None
+        # Deliberately do NOT clear board.last_sent here.
+        #
+        # A command paints over the board, so it is tempting to invalidate the
+        # cache "because the panel changed". That is exactly wrong: the next
+        # tick would then re-render the unchanged board and wipe the command's
+        # image within seconds. Observed on hardware.
+        #
+        # Because the daemon sends only when its *render* changes -- not when
+        # the panel's contents change -- keeping the cache lets an
+        # idot-send.sh image stay up until session state actually moves, and
+        # the board reclaims the panel naturally at that point.
 
 
 def _install_stop_handler() -> asyncio.Event:

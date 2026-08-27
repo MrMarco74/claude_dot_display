@@ -21,7 +21,8 @@ def _default_state_dir() -> pathlib.Path:
 @dataclass
 class Config:
     mac: str = ""
-    hwmon_url: str = ""
+    hwmon_url: str = ""          # hwmon command queue
+    sessions_url: str = ""       # optional remote session registry, separate
     setup_key: str = ""          # secret; environment only, never the repo
     poll_s: float = DEFAULT_POLL_S
     ccusage_refresh_s: float = DEFAULT_CCUSAGE_REFRESH_S
@@ -35,6 +36,7 @@ class Config:
         return cls(
             mac=env("DOTDISPLAY_MAC", "").strip(),
             hwmon_url=env("DOTDISPLAY_HWMON_URL", "").strip().rstrip("/"),
+            sessions_url=env("DOTDISPLAY_SESSIONS_URL", "").strip().rstrip("/"),
             setup_key=env("DOTDISPLAY_HWMON_SETUP_KEY", "").strip(),
             poll_s=float(env("DOTDISPLAY_POLL_S", DEFAULT_POLL_S)),
             ccusage_refresh_s=float(

@@ -1061,10 +1061,10 @@ async def test_no_hwmon_url_means_no_polling(cfg, mocker):
     claim.assert_not_called()
 
 
-async def test_a_command_invalidates_the_cached_board(cfg, mocker):
-    """A command paints over the board. The cache must forget what it sent,
-    or the next tick would see 'no change' and leave the command's image up
-    until session state happened to move."""
+async def test_a_command_does_not_invalidate_the_cached_board(cfg, mocker):
+    """A command paints over the board, but the cache must NOT be cleared:
+    clearing it makes the next tick re-render the unchanged board and wipe
+    the image within seconds."""
     cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid",
                               setup_key="k")
     mocker.patch("dotdisplay.daemon.sources.claim_command",
@@ -1077,7 +1077,7 @@ async def test_a_command_invalidates_the_cached_board(cfg, mocker):
 
     board = d.Board(last_sent=b"something")
     await d.serve_commands(cfg, PowerPanel(), board=board)
-    assert board.last_sent is None
+    assert board.last_sent == b"something"
 
 
 async def test_a_claim_failure_ends_the_drain_quietly(cfg, mocker):
@@ -1178,10 +1178,10 @@ async def serve_commands(config: Config, panel, board: Board = None) -> int:
             logger.warning("could not report a result: %s", exc)
 
         ran += 1
-        if board is not None:
-            # The command painted over the board; forget what we sent so the
-            # next tick re-renders rather than seeing "no change".
-            board.last_sent = None
+        # Deliberately do NOT clear board.last_sent here -- see the
+        # architecture design, section 8. Clearing it makes the next tick
+        # re-render the unchanged board and wipe the command's image within
+        # seconds.
 ```
 
 Then call it from `run`'s inner loop, **before** `tick`, so an explicit human

@@ -22,6 +22,10 @@ VALID_STATUSES = ("running", "question", "issue", "done")
 HTTP_TIMEOUT_S = 10
 USER_AGENT = "claude-dot-display/1.0"
 
+# Remembers the last remote-session failure so the same one is not logged on
+# every poll.
+_last_remote_error = [""]
+
 CLAIM_PATH = "/api/sensmonlight/idotmatrix/agent/claim"
 RESULT_PATH = "/api/sensmonlight/idotmatrix/agent/result"
 
@@ -68,7 +72,7 @@ def _hwmon_headers(config):
 
 
 def fetch_remote_sessions(config) -> list[dict]:
-    response = requests.get(f"{config.hwmon_url}/api/sensmonlight/sessions",
+    response = requests.get(f"{config.sessions_url}/api/sensmonlight/sessions",
                             headers=_hwmon_headers(config),
                             timeout=HTTP_TIMEOUT_S)
     response.raise_for_status()
@@ -79,13 +83,20 @@ def read_sessions(config) -> list[dict]:
     """Local first, remote merged in if configured. A remote failure keeps the
     local sessions rather than blanking the board."""
     sessions = read_local_sessions(config)
-    if not config.hwmon_url:
+    if not config.sessions_url:
         return sessions
     try:
         remote = fetch_remote_sessions(config)
     except (requests.exceptions.RequestException, ValueError) as exc:
-        logger.warning("remote sessions unavailable: %s", exc)
+        # Warn once per distinct failure, then stay quiet: an optional source
+        # that is simply absent must not put a line in the log on every poll,
+        # or the log stops being readable at all.
+        message = str(exc)
+        if message != _last_remote_error[0]:
+            logger.warning("remote sessions unavailable: %s", message)
+            _last_remote_error[0] = message
         return sessions
+    _last_remote_error[0] = ""
     known = {item["name"] for item in sessions}
     sessions.extend(item for item in remote
                     if item.get("name") and item["name"] not in known)

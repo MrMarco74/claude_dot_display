@@ -66,7 +66,7 @@ def test_invalid_status_is_skipped(cfg):
 
 
 def test_remote_sessions_are_merged(cfg, mocker):
-    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid")
+    cfg = dataclasses.replace(cfg, sessions_url="https://example.invalid")
     _write(cfg, "local")
     mocker.patch("dotdisplay.sources.fetch_remote_sessions",
                  return_value=[{"name": "remote", "status": "running"}])
@@ -75,7 +75,7 @@ def test_remote_sessions_are_merged(cfg, mocker):
 
 def test_remote_failure_leaves_local_sessions_intact(cfg, mocker):
     """The board must not go blank because a server is down."""
-    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid")
+    cfg = dataclasses.replace(cfg, sessions_url="https://example.invalid")
     _write(cfg, "local")
     mocker.patch("dotdisplay.sources.fetch_remote_sessions",
                  side_effect=requests.exceptions.ConnectionError("down"))
@@ -133,3 +133,27 @@ def test_trends_need_a_previous_day(tmp_path):
     assert s.trends({"today": 10}, path) == {}          # first ever run
     path.write_text(json.dumps({"date": "2000-01-01", "stats": {"today": 5}}))
     assert s.trends({"today": 10}, path) == {"today": True}
+
+
+def test_a_repeating_remote_failure_is_logged_once(cfg, mocker, caplog):
+    """An optional source that is simply absent must not put a line in the
+    log on every poll, or the log stops being readable."""
+    import logging
+    cfg = dataclasses.replace(cfg, sessions_url="https://example.invalid")
+    mocker.patch("dotdisplay.sources.fetch_remote_sessions",
+                 side_effect=requests.exceptions.ConnectionError("404 nope"))
+    s._last_remote_error[0] = ""
+    with caplog.at_level(logging.WARNING, logger="dotdisplay.sources"):
+        for _ in range(5):
+            s.read_sessions(cfg)
+    assert len(caplog.records) == 1
+
+
+def test_hwmon_url_alone_does_not_enable_remote_sessions(cfg, mocker):
+    """The command queue and the session registry are separate opt-ins: the
+    registry endpoint does not exist on hwmon-server at all, so setting the
+    command URL must not switch it on."""
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid")
+    fetch = mocker.patch("dotdisplay.sources.fetch_remote_sessions")
+    s.read_sessions(cfg)
+    fetch.assert_not_called()
