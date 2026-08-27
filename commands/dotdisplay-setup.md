@@ -13,9 +13,11 @@ Set up the claude-dot-display board on this machine.
 
 2. Find the panel's Bluetooth address if the user has not given one:
 
-       bluetoothctl devices | grep -i IDM
+       dotdisplay discover
 
-   The panel advertises as `IDM-<last six hex digits of its address>`. If
+   The panel advertises as `IDM-<last six hex digits of its address>`. Do not
+   use `bluetoothctl devices` for this: it only lists adapters that have
+   already seen the panel, so it is empty exactly when help is needed. If
    nothing is found, ask the user rather than guessing.
 
 3. Confirm no other process owns the radio. Only one process can hold the BLE
@@ -37,7 +39,8 @@ Set up the claude-dot-display board on this machine.
 
    Expect `panel connected` followed by `panel updated`. Then ask the user to
    confirm the panel actually changed — a clean log is not evidence that
-   anything lit up.
+   anything lit up. `dotdisplay check` shows a code for exactly this, but the
+   daemon must be stopped first since it holds the radio.
 
 6. Mention two things the user will want to know:
 

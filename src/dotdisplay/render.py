@@ -137,3 +137,41 @@ def render_idle(stats: dict[str, int], trends: dict[str, bool],
             _arrow(draw, int(RIGHT - width - 7), y + 2, trends[key])
         y += ROW_H
     return img
+
+
+CODE_FONT_SIZE = 26      # readable across a room; the 8px board font is not
+CODE_COLOUR = (255, 255, 255)
+CODE_FRAME = (60, 120, 255)
+
+
+def _code_font():
+    for path in _FONT_PATHS:
+        try:
+            return ImageFont.truetype(path, CODE_FONT_SIZE)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def render_code(code: str) -> Image.Image:
+    """Draw a short confirmation code, large enough to read from across the
+    room.
+
+    Used by `dotdisplay check`: seeing this code is what proves the address
+    points at the panel you are actually looking at, rather than merely at
+    something that answered.
+    """
+    img, draw = _canvas()
+    font = _code_font()
+    draw.rectangle([0, 0, W - 1, H - 1], outline=CODE_FRAME)
+
+    text = str(code)
+    rows = [text[: len(text) // 2 or 1], text[len(text) // 2 or 1:]]
+    y = 4
+    for row in rows:
+        if not row:
+            continue
+        width = draw.textlength(row, font=font)
+        draw.text(((W - width) / 2, y), row, font=font, fill=CODE_COLOUR)
+        y += CODE_FONT_SIZE + 4
+    return img

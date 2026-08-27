@@ -94,3 +94,61 @@ def test_name_and_this_are_mutually_exclusive(tmp_path, monkeypatch):
     monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
     with pytest.raises(SystemExit):
         cli.main(["status", "--name", "x", "--this", "--state", "done"])
+
+
+def test_check_without_a_mac_says_how_to_find_one(monkeypatch, capsys):
+    """A first-time user has no address yet; the error must point at the way
+    to get one rather than just refusing."""
+    monkeypatch.delenv("DOTDISPLAY_MAC", raising=False)
+    assert cli.main(["check"]) == 1
+    assert "discover" in capsys.readouterr().err
+
+
+def test_check_sends_the_code_and_prints_it(monkeypatch, capsys, mocker):
+    monkeypatch.setenv("DOTDISPLAY_MAC", "AA:BB:CC:DD:EE:FF")
+    sent = {}
+
+    class FakePanel:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def send_image(self, img):
+            sent["img"] = img
+
+    mocker.patch("dotdisplay.ble.PanelClient", return_value=FakePanel())
+    assert cli.main(["check", "--code", "4207"]) == 0
+    assert sent["img"].size == (64, 64)
+    assert "4207" in capsys.readouterr().out
+
+
+def test_check_reports_the_daemon_as_a_likely_cause(monkeypatch, capsys, mocker):
+    """Only one process can hold the radio. A raw BLE error would send the
+    next person debugging the wrong layer."""
+    monkeypatch.setenv("DOTDISPLAY_MAC", "AA:BB:CC:DD:EE:FF")
+    mocker.patch("dotdisplay.ble.PanelClient", side_effect=OSError("busy"))
+    assert cli.main(["check"]) == 1
+    assert "dotdisplay.service" in capsys.readouterr().err
+
+
+def test_discover_reports_when_nothing_is_found(capsys, mocker):
+    mocker.patch("bleak.BleakScanner.discover", return_value=[])
+    assert cli.main(["discover"]) == 1
+    assert "IDM-" in capsys.readouterr().err
+
+
+def test_discover_lists_only_panels(capsys, mocker):
+    """Every Bluetooth device in the room would be noise."""
+    class Dev:
+        def __init__(self, address, name):
+            self.address, self.name = address, name
+
+    mocker.patch("bleak.BleakScanner.discover",
+                 return_value=[Dev("11:22", "Headphones"),
+                               Dev("9C:F6", "IDM-234849")])
+    assert cli.main(["discover"]) == 0
+    out = capsys.readouterr().out
+    assert "IDM-234849" in out
+    assert "Headphones" not in out

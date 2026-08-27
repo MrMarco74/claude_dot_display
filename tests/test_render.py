@@ -92,3 +92,28 @@ def test_long_names_are_truncated_to_the_display_budget():
     img = r.render_sessions(
         [{"name": "a" * 40, "status": "running", "stages_left": 1}], HEADER)
     assert img.size == (64, 64)      # must not raise or overflow
+
+
+def test_code_screen_is_64x64():
+    assert r.render_code("4207").size == (64, 64)
+
+
+def test_different_codes_render_differently():
+    assert r.render_code("4207").tobytes() != r.render_code("1138").tobytes()
+
+
+def test_code_rendering_is_deterministic():
+    assert r.render_code("4207").tobytes() == r.render_code("4207").tobytes()
+
+
+def test_the_code_uses_a_large_share_of_the_panel():
+    """The point is reading it from across the room. A code drawn in the 8px
+    board font would defeat the purpose."""
+    img = r.render_code("8888")
+    lit = sum(1 for p in img.getdata() if sum(p) > 60)
+    assert lit > 300, f"only {lit} pixels lit; code is too small to read"
+
+
+@pytest.mark.parametrize("code", ["1", "12", "123456"])
+def test_odd_length_codes_do_not_crash(code):
+    assert r.render_code(code).size == (64, 64)

@@ -95,6 +95,18 @@ take `dotdisplay.ble` and ignore the rest.
 - A Bluetooth LE adapter within range of the panel
 - A 64x64 iDotMatrix panel
 
+**No pairing is needed** — the panel accepts connections unpaired. What you
+do need is its Bluetooth address:
+
+```bash
+dotdisplay discover          # lists panels in range as IDM-<six hex digits>
+dotdisplay check             # shows a code on the panel to confirm it
+```
+
+`check` matters when more than one panel is around: reachability only proves
+that *something* answered, while seeing the code proves the address points at
+the panel you are looking at.
+
 Other iDotMatrix sizes are untested. We only claim what we have verified
 against hardware.
 

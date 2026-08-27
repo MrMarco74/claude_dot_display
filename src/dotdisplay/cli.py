@@ -42,6 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
     send = sub.add_parser("send", help="push one image to the panel")
     send.add_argument("image")
 
+    sub.add_parser("discover", help="scan for iDotMatrix panels in range")
+
+    check = sub.add_parser(
+        "check", help="show a code on the panel to confirm the address")
+    check.add_argument("--code", help="use a fixed code instead of a random one")
+
     return parser
 
 
@@ -152,6 +158,81 @@ def _cmd_send(args) -> int:
     return 0
 
 
+def _cmd_discover() -> int:
+    """List panels in range.
+
+    The installer asks for a Bluetooth address, which a first-time user has
+    no way to know: `bluetoothctl devices` only lists adapters that have
+    already seen the panel, so it is empty exactly when help is needed most.
+    """
+    import asyncio
+
+    from bleak import BleakScanner
+
+    async def scan():
+        return await BleakScanner.discover(timeout=8.0)
+
+    try:
+        devices = asyncio.run(scan())
+    except Exception as exc:      # noqa: BLE001 - report, do not traceback
+        print(f"dotdisplay: could not scan: {exc}", file=sys.stderr)
+        return 1
+
+    panels = [d for d in devices if (d.name or "").upper().startswith("IDM")]
+    if not panels:
+        print("No iDotMatrix panel found. It advertises as IDM-<six hex "
+              "digits>; check that it is powered on and in range.",
+              file=sys.stderr)
+        return 1
+
+    for device in panels:
+        print(f"{device.address}  {device.name}")
+    print("\nUse one of these as DOTDISPLAY_MAC.", file=sys.stderr)
+    return 0
+
+
+def _cmd_check(args) -> int:
+    """Show a code on the panel.
+
+    Reachability alone proves only that *something* answered. Seeing the code
+    with your own eyes is what proves the address points at the panel you are
+    looking at -- which matters as soon as there is more than one.
+    """
+    import asyncio
+    import secrets
+
+    from dotdisplay import render
+    from dotdisplay.ble import PanelClient
+    from dotdisplay.config import Config
+
+    config = Config.from_env()
+    if not config.mac:
+        print("DOTDISPLAY_MAC is not set. Run 'dotdisplay discover' to find "
+              "the panel's address.", file=sys.stderr)
+        return 1
+
+    code = args.code or f"{secrets.randbelow(10000):04d}"
+
+    async def go():
+        async with PanelClient(config.mac) as panel:
+            await panel.send_image(render.render_code(code))
+
+    try:
+        asyncio.run(go())
+    except Exception as exc:      # noqa: BLE001 - report, do not traceback
+        print(f"dotdisplay: could not reach {config.mac}: {exc}",
+              file=sys.stderr)
+        print("If the board daemon is running it already owns the radio; "
+              "stop it first:\n  systemctl --user stop dotdisplay.service",
+              file=sys.stderr)
+        return 1
+
+    print(f"Connected to {config.mac}.")
+    print(f"The panel should now be showing:  {code}")
+    print("If you see that code, the address is correct.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -162,6 +243,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_daemon()
     if args.command == "send":
         return _cmd_send(args)
+    if args.command == "discover":
+        return _cmd_discover()
+    if args.command == "check":
+        return _cmd_check(args)
 
     # No subcommand is not success. print_usage() defaults to stdout, but a
     # failure path belongs on stderr.
