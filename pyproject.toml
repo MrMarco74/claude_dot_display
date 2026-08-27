@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-mock>=3.14", "ruff>=0.6"]
+dev = ["pytest>=8.0", "pytest-mock>=3.14", "pytest-asyncio>=0.24", "ruff>=0.6"]
 
 [project.urls]
 Homepage = "https://github.com/MrMarco74/claude_dot_display"
@@ -43,6 +43,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
