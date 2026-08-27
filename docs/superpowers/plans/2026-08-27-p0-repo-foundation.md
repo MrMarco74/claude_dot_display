@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the `claude-pixelwatch` repo from two design documents into an installable, tested, licensed, documented, CI-checked project published to both GitHub and the internal GitLab.
+**Goal:** Turn the `claude-dot-display` repo from two design documents into an installable, tested, licensed, documented, CI-checked project published to both GitHub and the internal GitLab.
 
 **Architecture:** P0 builds no product behaviour. It builds the shell the product will live in: a `src/`-layout Python package with a working test cycle, the MIT licence and the licence-consistency test that protects the project's central promise, the logo, the README that tells the GPL story, the plugin and marketplace manifests that make the repo self-hosting, CI, and both remotes.
 
@@ -17,10 +17,10 @@ Copied verbatim from the spec. Every task's requirements implicitly include thes
 - **Python 3.11+.** Local development runs 3.12.3.
 - **Runtime dependencies are exactly `bleak`, `pillow`, `requests`.** Nothing else, and **nothing copyleft** — that constraint is the entire reason this project exists.
 - **The clean-room rule is binding from day one.** Do not open GPL iDotMatrix source (`derkalle4/python3-idotmatrix-client`, `markusressel/idotmatrix-api-client`, `python3-idotmatrix-library`) at any point, in any task. Observing wire traffic is permitted; reading their code is not.
-- **Names:** repo, plugin id, and PyPI package are `claude-pixelwatch`. The console script and the Python module are `pixelwatch`.
+- **Names:** repo, plugin id, and PyPI package are `claude-dot-display`. The console script and the Python module are `dotdisplay`.
 - **Licence is MIT**, and the licence-consistency test in Task 2 must keep passing for the life of the project.
-- **Remotes:** `git@github.com:MrMarco74/claude-pixelwatch.git` (`origin`) and `git@gitlab.internal.familie-frischkorn.de:apps/claude-pixelwatch.git` (`gitlab`).
-- Test command: `cd ~/Documents/gitlab/claude-pixelwatch && python -m pytest -q`. **Baseline is 0 tests** — this repo has none yet.
+- **Remotes:** `git@github.com:MrMarco74/claude_dot_display.git` (`origin`) and `git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git` (`gitlab`).
+- Test command: `cd ~/Documents/gitlab/claude_dot_display && python -m pytest -q`. **Baseline is 0 tests** — this repo has none yet.
 - Lint command: `ruff check .`
 - No real network calls in tests. No test above ~1s.
 
@@ -29,13 +29,13 @@ Copied verbatim from the spec. Every task's requirements implicitly include thes
 | File | Responsibility |
 | --- | --- |
 | `pyproject.toml` | Package metadata, dependencies, console script, ruff and pytest config |
-| `src/pixelwatch/__init__.py` | Package version, single source of truth |
-| `src/pixelwatch/cli.py` | Argument parsing and entry point. Grows subcommands in P2; carries only `--version` now |
+| `src/dotdisplay/__init__.py` | Package version, single source of truth |
+| `src/dotdisplay/cli.py` | Argument parsing and entry point. Grows subcommands in P2; carries only `--version` now |
 | `tests/test_cli.py` | Entry-point behaviour |
 | `tests/test_licensing.py` | Guards the MIT promise and the no-copyleft dependency rule |
 | `tests/test_manifests.py` | Guards manifest/package metadata agreement |
 | `LICENSE` | MIT text |
-| `assets/logo.svg` | Pixel-grid eye mark |
+| `assets/logo.jpg` + derived sizes | Project logo, supplied by the author |
 | `README.md` | Badges, the GPL story, install, status |
 | `.claude-plugin/plugin.json` | Plugin manifest |
 | `.claude-plugin/marketplace.json` | Self-hosted marketplace manifest |
@@ -45,14 +45,14 @@ Copied verbatim from the spec. Every task's requirements implicitly include thes
 
 ### Task 1: Python package skeleton and test cycle
 
-Nothing else can be tested until there is something installable to test. This task ends with `pytest` green and `pixelwatch --version` working.
+Nothing else can be tested until there is something installable to test. This task ends with `pytest` green and `dotdisplay --version` working.
 
 **Files:**
-- Create: `pyproject.toml`, `src/pixelwatch/__init__.py`, `src/pixelwatch/cli.py`, `tests/test_cli.py`
+- Create: `pyproject.toml`, `src/dotdisplay/__init__.py`, `src/dotdisplay/cli.py`, `tests/test_cli.py`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `pixelwatch.__version__` (str); `pixelwatch.cli.main(argv: list[str] | None = None) -> int`; console script `pixelwatch`.
+- Produces: `dotdisplay.__version__` (str); `dotdisplay.cli.main(argv: list[str] | None = None) -> int`; console script `dotdisplay`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -61,8 +61,8 @@ Create `tests/test_cli.py`:
 ```python
 import pytest
 
-import pixelwatch
-from pixelwatch import cli
+import dotdisplay
+from dotdisplay import cli
 
 
 def test_version_is_reported(capsys):
@@ -71,7 +71,7 @@ def test_version_is_reported(capsys):
     with pytest.raises(SystemExit) as exc:
         cli.main(["--version"])
     assert exc.value.code == 0
-    assert pixelwatch.__version__ in capsys.readouterr().out
+    assert dotdisplay.__version__ in capsys.readouterr().out
 
 
 def test_no_arguments_prints_help_and_fails(capsys):
@@ -82,15 +82,15 @@ def test_no_arguments_prints_help_and_fails(capsys):
 
 
 def test_version_string_is_a_release_number():
-    parts = pixelwatch.__version__.split(".")
+    parts = dotdisplay.__version__.split(".")
     assert len(parts) == 3
     assert all(p.isdigit() for p in parts)
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd ~/Documents/gitlab/claude-pixelwatch && python -m pytest -q`
-Expected: FAIL — `ModuleNotFoundError: No module named 'pixelwatch'`
+Run: `cd ~/Documents/gitlab/claude_dot_display && python -m pytest -q`
+Expected: FAIL — `ModuleNotFoundError: No module named 'dotdisplay'`
 
 - [ ] **Step 3: Write the implementation**
 
@@ -102,7 +102,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-pixelwatch"
+name = "claude-dot-display"
 version = "0.1.0"
 description = "Show your Claude Code sessions on an iDotMatrix LED panel."
 readme = "README.md"
@@ -130,11 +130,11 @@ dependencies = [
 dev = ["pytest>=8.0", "pytest-mock>=3.14", "ruff>=0.6"]
 
 [project.urls]
-Homepage = "https://github.com/MrMarco74/claude-pixelwatch"
-Source = "https://github.com/MrMarco74/claude-pixelwatch"
+Homepage = "https://github.com/MrMarco74/claude_dot_display"
+Source = "https://github.com/MrMarco74/claude_dot_display"
 
 [project.scripts]
-pixelwatch = "pixelwatch.cli:main"
+dotdisplay = "dotdisplay.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -155,17 +155,17 @@ Note `license = "MIT"` with `license-files` is the PEP 639 form, which is why th
 
 The system setuptools on marcohp is **68.1.2**, which does not understand that form. This is fine because pip uses build isolation by default and will fetch a new enough setuptools from `[build-system] requires`. If you ever build with `--no-build-isolation`, upgrade setuptools first or the build fails with a confusing metadata error.
 
-Create `src/pixelwatch/__init__.py`:
+Create `src/dotdisplay/__init__.py`:
 
 ```python
-"""claude-pixelwatch -- your Claude Code sessions on an LED matrix."""
+"""claude-dot-display -- your Claude Code sessions on an LED matrix."""
 
 __version__ = "0.1.0"
 
 __all__ = ["__version__"]
 ```
 
-Create `src/pixelwatch/cli.py`:
+Create `src/dotdisplay/cli.py`:
 
 ```python
 """Command line entry point.
@@ -178,12 +178,12 @@ deliberate choice recorded in the design.
 import argparse
 import sys
 
-from pixelwatch import __version__
+from dotdisplay import __version__
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pixelwatch",
+        prog="dotdisplay",
         description="Show your Claude Code sessions on an iDotMatrix LED panel.",
     )
     parser.add_argument("--version", action="version", version=__version__)
@@ -205,20 +205,20 @@ Note the explicit `sys.stderr`: `print_usage()` defaults to **stdout**, but this
 - [ ] **Step 4: Install in editable mode and run the tests**
 
 ```bash
-cd ~/Documents/gitlab/claude-pixelwatch
+cd ~/Documents/gitlab/claude_dot_display
 python -m pip install -e ".[dev]"
 python -m pytest -q
 ruff check .
-pixelwatch --version
+dotdisplay --version
 ```
 
-Expected: 3 tests PASS, ruff clean, `pixelwatch --version` prints `0.1.0`.
+Expected: 3 tests PASS, ruff clean, `dotdisplay --version` prints `0.1.0`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add pyproject.toml src tests
-git commit -m "feat: add the pixelwatch package skeleton and entry point"
+git commit -m "feat: add the dotdisplay package skeleton and entry point"
 ```
 
 ---
@@ -338,70 +338,45 @@ git commit -m "feat: add the MIT licence and its consistency tests"
 The README carries the GPL story, which is a stated requirement rather than decoration. The logo ships with it because the README embeds it.
 
 **Files:**
-- Create: `assets/logo.svg`, `README.md`
+- Copy in: `assets/logo.jpg`, `assets/logo-512.png`, `assets/icon-128.png`, `assets/splash-64.png`
+- Create: `README.md`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `assets/logo.svg`, reused in P2 as the daemon's splash screen on the panel.
+- Produces: `assets/splash-64.png`, reused in P2 as the daemon's splash screen on the panel.
 
-- [ ] **Step 1: Create the logo**
+- [ ] **Step 1: Confirm the logo assets are present**
 
-Create `assets/logo.svg`. An 8x8 pixel grid in a 64x64 viewBox — the panel's own geometry — forming an aperture with a lit pupil. Cells are 6x6 with a 2px gutter, which is what gives it the LED-matrix look rather than a flat icon.
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="claude-pixelwatch">
-  <title>claude-pixelwatch</title>
-  <rect width="64" height="64" rx="6" fill="#0b0e14"/>
-  <g fill="#3c78ff">
-    <rect x="17" y="1" width="6" height="6" rx="1"/>
-    <rect x="25" y="1" width="6" height="6" rx="1"/>
-    <rect x="33" y="1" width="6" height="6" rx="1"/>
-    <rect x="41" y="1" width="6" height="6" rx="1"/>
-    <rect x="9" y="9" width="6" height="6" rx="1"/>
-    <rect x="49" y="9" width="6" height="6" rx="1"/>
-    <rect x="1" y="17" width="6" height="6" rx="1"/>
-    <rect x="57" y="17" width="6" height="6" rx="1"/>
-    <rect x="1" y="25" width="6" height="6" rx="1"/>
-    <rect x="57" y="25" width="6" height="6" rx="1"/>
-    <rect x="1" y="33" width="6" height="6" rx="1"/>
-    <rect x="57" y="33" width="6" height="6" rx="1"/>
-    <rect x="1" y="41" width="6" height="6" rx="1"/>
-    <rect x="57" y="41" width="6" height="6" rx="1"/>
-    <rect x="9" y="49" width="6" height="6" rx="1"/>
-    <rect x="49" y="49" width="6" height="6" rx="1"/>
-    <rect x="17" y="57" width="6" height="6" rx="1"/>
-    <rect x="25" y="57" width="6" height="6" rx="1"/>
-    <rect x="33" y="57" width="6" height="6" rx="1"/>
-    <rect x="41" y="57" width="6" height="6" rx="1"/>
-  </g>
-  <g fill="#ffc400">
-    <rect x="25" y="17" width="6" height="6" rx="1"/>
-    <rect x="33" y="17" width="6" height="6" rx="1"/>
-    <rect x="17" y="25" width="6" height="6" rx="1"/>
-    <rect x="25" y="25" width="6" height="6" rx="1"/>
-    <rect x="33" y="25" width="6" height="6" rx="1"/>
-    <rect x="41" y="25" width="6" height="6" rx="1"/>
-    <rect x="17" y="33" width="6" height="6" rx="1"/>
-    <rect x="25" y="33" width="6" height="6" rx="1"/>
-    <rect x="33" y="33" width="6" height="6" rx="1"/>
-    <rect x="41" y="33" width="6" height="6" rx="1"/>
-    <rect x="25" y="41" width="6" height="6" rx="1"/>
-    <rect x="33" y="41" width="6" height="6" rx="1"/>
-  </g>
-</svg>
-```
-
-The two colours are taken from the panel's verified palette: `#3c78ff` is the `running` blue `(60,120,255)` and `#ffc400` is close to the `question` amber. Do not substitute grey anywhere — grey renders as washed-out lavender on the hardware, and the mark is meant to be reusable as a splash screen.
-
-- [ ] **Step 2: Verify the logo renders**
+The logo was supplied by the author as a 2048x2048 JPEG. The derived sizes are
+already generated and committed. Do not restyle or regenerate them.
 
 ```bash
-grep -c '<rect' assets/logo.svg
+ls -l assets/
 ```
 
-Expected: `33` (1 background + 20 ring + 12 pupil). Open it in a browser or image viewer and confirm it reads as an eye at small sizes.
+Expected: `logo.jpg` (1024, README hero), `logo-512.png`, `icon-128.png`, `splash-64.png`.
 
-Counted with `grep` rather than an XML parser on purpose: stdlib `xml.etree` is vulnerable to entity-expansion attacks, and pulling in `defusedxml` to count our own rectangles would break the three-dependency rule for no benefit.
+`splash-64.png` is a tight crop of the logo's glowing star, **not** a downscale
+of the whole image: the full logo at 64x64 was rendered and confirmed
+unreadable. It is quantized to 24 colours, which is what the panel renders
+cleanly.
+
+- [ ] **Step 2: Verify the assets**
+
+```bash
+python3 -c "
+from PIL import Image
+for n in ('logo.jpg', 'logo-512.png', 'icon-128.png', 'splash-64.png'):
+    im = Image.open('assets/' + n); print(n, im.size, im.mode)"
+```
+
+Expected: `(1024, 1024)`, `(512, 512)`, `(128, 128)`, `(64, 64)`.
+
+**Unresolved before publishing — the Octocat.** The supplied logo includes
+GitHub's Octocat mascot. GitHub's brand guidelines restrict derivative uses of
+it, and this project's entire premise is getting licensing right, so shipping
+it publicly is a call to make deliberately rather than by default. This is
+listed again in Task 6's pre-push checklist and must be resolved there.
 
 - [ ] **Step 3: Write the README**
 
@@ -410,13 +385,13 @@ Create `README.md`:
 ````markdown
 <div align="center">
 
-<img src="assets/logo.svg" width="96" alt="claude-pixelwatch">
+<img src="assets/logo.jpg" width="320" alt="claude-dot-display">
 
-# claude-pixelwatch
+# claude-dot-display
 
 **Your Claude Code sessions, on an LED matrix.**
 
-[![CI](https://github.com/MrMarco74/claude-pixelwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/MrMarco74/claude-pixelwatch/actions/workflows/ci.yml)
+[![CI](https://github.com/MrMarco74/claude_dot_display/actions/workflows/ci.yml/badge.svg)](https://github.com/MrMarco74/claude_dot_display/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
@@ -425,7 +400,7 @@ Create `README.md`:
 
 ---
 
-`claude-pixelwatch` turns a 64x64 iDotMatrix LED panel into an ambient status
+`claude-dot-display` turns a 64x64 iDotMatrix LED panel into an ambient status
 board for your Claude Code sessions. Each running session gets a row: its name
 in a colour that tells you its state, and how many stages it has left.
 
@@ -477,7 +452,7 @@ records for every opcode what was observed, where it was captured, and that it
 was replayed successfully against a physical unit.
 
 If you only want a permissively licensed way to talk to one of these panels,
-take `pixelwatch.ble` and ignore the rest.
+take `dotdisplay.ble` and ignore the rest.
 
 ## Requirements
 
@@ -491,7 +466,7 @@ against hardware.
 ## Install
 
 ```bash
-pipx install claude-pixelwatch
+pipx install claude-dot-display
 ```
 
 ## Licence
@@ -513,7 +488,7 @@ The README links `PROTOCOL.md`, which P1 creates. That link is dead until then; 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add assets/logo.svg README.md
+git add assets README.md
 git commit -m "docs: add the logo and the README with the licensing rationale"
 ```
 
@@ -528,7 +503,7 @@ Making the repo its own marketplace is what lets anyone install with two command
 
 **Interfaces:**
 - Consumes: `pyproject.toml` version from Task 1.
-- Produces: a `claude-pixelwatch` plugin installable via `/plugin marketplace add MrMarco74/claude-pixelwatch`.
+- Produces: a `claude-dot-display` plugin installable via `/plugin marketplace add MrMarco74/claude_dot_display`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -546,14 +521,14 @@ MARKET = ROOT / ".claude-plugin" / "marketplace.json"
 
 def test_plugin_manifest_is_valid_json_with_required_fields():
     d = json.loads(PLUGIN.read_text())
-    assert d["name"] == "claude-pixelwatch"
+    assert d["name"] == "claude-dot-display"
     assert d["description"]
     assert d["author"]["name"]
 
 
 def test_marketplace_lists_this_plugin_from_this_repo():
     d = json.loads(MARKET.read_text())
-    entry = next(p for p in d["plugins"] if p["name"] == "claude-pixelwatch")
+    entry = next(p for p in d["plugins"] if p["name"] == "claude-dot-display")
     # "./" means the plugin lives in this same repository, which is what makes
     # the repo self-hosting as a marketplace.
     assert entry["source"] == "./"
@@ -576,13 +551,13 @@ Create `.claude-plugin/plugin.json`:
 
 ```json
 {
-  "name": "claude-pixelwatch",
+  "name": "claude-dot-display",
   "description": "Show your Claude Code sessions on an iDotMatrix LED panel.",
   "version": "0.1.0",
   "author": {
     "name": "MrMarco"
   },
-  "homepage": "https://github.com/MrMarco74/claude-pixelwatch"
+  "homepage": "https://github.com/MrMarco74/claude_dot_display"
 }
 ```
 
@@ -591,21 +566,21 @@ Create `.claude-plugin/marketplace.json`:
 ```json
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-pixelwatch",
+  "name": "claude-dot-display",
   "description": "Ambient status board for Claude Code sessions on an LED matrix.",
   "owner": {
     "name": "MrMarco"
   },
   "plugins": [
     {
-      "name": "claude-pixelwatch",
+      "name": "claude-dot-display",
       "description": "Show your Claude Code sessions on an iDotMatrix LED panel.",
       "author": {
         "name": "MrMarco"
       },
       "category": "productivity",
       "source": "./",
-      "homepage": "https://github.com/MrMarco74/claude-pixelwatch"
+      "homepage": "https://github.com/MrMarco74/claude_dot_display"
     }
   ]
 }
@@ -722,7 +697,7 @@ git commit -m "ci: lint and test on Python 3.11 through 3.13"
 - [ ] **Step 1: Pre-push checklist**
 
 ```bash
-cd ~/Documents/gitlab/claude-pixelwatch
+cd ~/Documents/gitlab/claude_dot_display
 ruff check .
 python -m pytest -q
 claude plugin validate --strict .
@@ -734,13 +709,16 @@ Confirm all of:
 - 11 tests pass, ruff clean, plugin validation passes.
 - No captured Bluetooth traffic is staged — `.gitignore` excludes `captures/`, `*.btsnoop`, `*.log`. Captures can contain identifiers from other devices in range.
 - The README's link to `PROTOCOL.md` is still dead. That is expected at P0 and closes in P1.
+- **The Octocat question is resolved.** The logo currently includes GitHub's
+  mascot; either the author has decided to ship it as-is, or the logo has been
+  amended. Do not publish while this is still open.
 
 - [ ] **Step 2: Create the GitHub repository and push**
 
 `gh` is already authenticated as `MrMarco74`.
 
 ```bash
-gh repo create MrMarco74/claude-pixelwatch \
+gh repo create MrMarco74/claude_dot_display \
   --public \
   --description "Your Claude Code sessions, on an LED matrix. MIT, with a clean-room iDotMatrix BLE driver." \
   --source . --remote origin --push
@@ -749,14 +727,14 @@ gh repo create MrMarco74/claude-pixelwatch \
 If the remote was added over HTTPS, switch it to SSH as specified:
 
 ```bash
-git remote set-url origin git@github.com:MrMarco74/claude-pixelwatch.git
+git remote set-url origin git@github.com:MrMarco74/claude_dot_display.git
 git remote -v
 ```
 
 - [ ] **Step 3: Add the GitLab remote and push**
 
 ```bash
-git remote add gitlab git@gitlab.internal.familie-frischkorn.de:apps/claude-pixelwatch.git
+git remote add gitlab git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git
 git push -u gitlab main
 ```
 
@@ -784,11 +762,11 @@ Expected: the CI run passes on all three Python versions. If the badge in the RE
 Then confirm the marketplace install path end to end:
 
 ```bash
-claude plugin marketplace add MrMarco74/claude-pixelwatch
+claude plugin marketplace add MrMarco74/claude_dot_display
 claude plugin list
 ```
 
-Expected: `claude-pixelwatch` appears as an available plugin. This is the real proof the manifests are right — the tests only check their shape.
+Expected: `claude-dot-display` appears as an available plugin. This is the real proof the manifests are right — the tests only check their shape.
 
 - [ ] **Step 6: Commit any fixes and close out**
 
@@ -806,11 +784,11 @@ git push origin main && git push gitlab main
 
 P0 is complete when all of these are true:
 
-- `pipx install` is not yet possible (no PyPI release — that is P2/P3), but `pip install -e .` works and `pixelwatch --version` prints `0.1.0`.
+- `pipx install` is not yet possible (no PyPI release — that is P2/P3), but `pip install -e .` works and `dotdisplay --version` prints `0.1.0`.
 - 11 tests pass locally and in CI on Python 3.11, 3.12, and 3.13.
 - `ruff check .` is clean.
 - `claude plugin validate --strict .` passes.
-- `claude plugin marketplace add MrMarco74/claude-pixelwatch` succeeds from a clean machine's perspective.
+- `claude plugin marketplace add MrMarco74/claude_dot_display` succeeds from a clean machine's perspective.
 - `main` is identical on GitHub and on the internal GitLab.
 - The README states the GPL rationale and the clean-room method.
 

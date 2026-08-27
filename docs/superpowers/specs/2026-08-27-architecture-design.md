@@ -1,4 +1,4 @@
-# claude-pixelwatch — Architecture Design
+# claude-dot-display — Architecture Design
 
 **Status:** approved 2026-08-27
 **Supersedes:** `hwmon/docs/superpowers/specs/2026-08-27-session-overview-display-design.md`
@@ -68,15 +68,15 @@ hwmon-server is not something a stranger can adopt.
 | Topology | Local-first, optional remote source | A server dependency kills open-source adoption; the optional source preserves the multi-host case |
 | hwmon | Daemon absorbs the agent role; iDotMatrix code deleted from `sensmonlight` | Only one process may own the radio; two agents would contend |
 | Protocol | Clean-room, from observed wire traffic only | Makes the MIT claim true rather than asserted |
-| Name | Repo/plugin/PyPI `claude-pixelwatch`; command and module `pixelwatch` | Discoverable and unclaimed, but short to type |
-| Logo | Hand-authored SVG pixel-grid eye | Version-controlled, scales, and doubles as the panel splash screen |
+| Name | Repo/plugin/PyPI `claude-dot-display`; command and module `dotdisplay` | Discoverable and unclaimed, but short to type |
+| Logo | Author-supplied artwork; a cropped detail doubles as the panel splash | Keeps the project's visual identity in the author's hands; the splash reuses it rather than inventing a second mark |
 | Plugin | Hooks + skill + setup command | Hooks cannot drift; the skill supplies what only the model knows |
 
 ### Name availability (verified 2026-08-27)
 
-- PyPI `claude-pixelwatch`: unclaimed (404).
-- GitHub `claude-pixelwatch`: no repositories with that name.
-- Plain `pixelwatch` was rejected for the public name: GitHub search is
+- PyPI `claude-dot-display`: unclaimed (404).
+- GitHub `claude-dot-display`: no repositories with that name.
+- Plain `dotdisplay` was rejected for the public name: GitHub search is
   dominated by Google Pixel Watch tooling.
 
 ## 6. Architecture
@@ -86,11 +86,11 @@ hwmon-server is not something a stranger can adopt.
    (hooks + skill)                   /idotmatrix/commands
           |  write JSON                     |  poll (optional)
           v                                 |
-   ~/.local/state/pixelwatch/sessions/      |
+   ~/.local/state/dotdisplay/sessions/      |
           |  watch                          |
           v                                 v
        +---------------------------------------+
-       |            pixelwatch daemon          |   sole owner of the radio
+       |            dotdisplay daemon          |   sole owner of the radio
        |    sources -> board -> render -> ble  |
        +---------------------------------------+
                           |
@@ -103,10 +103,10 @@ Four layers, each independently testable:
 
 | Layer | Responsibility | Depends on |
 | --- | --- | --- |
-| `pixelwatch.ble` | Wire protocol: frames, opcodes, pacing, connection. Knows nothing about sessions. | `bleak` |
-| `pixelwatch.render` | Pure: state to a 64x64 PNG. No I/O. | Pillow |
-| `pixelwatch.sources` | Where session state comes from: local files, optional HTTP | `requests` |
-| `pixelwatch.daemon` | Poll sources, render, send on change | the three above |
+| `dotdisplay.ble` | Wire protocol: frames, opcodes, pacing, connection. Knows nothing about sessions. | `bleak` |
+| `dotdisplay.render` | Pure: state to a 64x64 PNG. No I/O. | Pillow |
+| `dotdisplay.sources` | Where session state comes from: local files, optional HTTP | `requests` |
+| `dotdisplay.daemon` | Poll sources, render, send on change | the three above |
 
 The boundary that matters is `ble` against everything else. Nothing above it
 may know a byte of protocol. That is what makes the driver independently
@@ -117,7 +117,7 @@ publishable and independently testable against a fake transport.
 Hooks write one JSON file per session:
 
 ```
-~/.local/state/pixelwatch/sessions/<name>.json
+~/.local/state/dotdisplay/sessions/<name>.json
 ```
 
 ```json
@@ -273,25 +273,29 @@ window.
 - Python 3.11+, matching what the target hosts already run.
 - Runtime dependencies: `bleak`, `pillow`, `requests`. Nothing else, and
   nothing copyleft.
-- Distributed as `claude-pixelwatch` on PyPI; the intended install is
-  `pipx install claude-pixelwatch`, which keeps the daemon isolated from
+- Distributed as `claude-dot-display` on PyPI; the intended install is
+  `pipx install claude-dot-display`, which keeps the daemon isolated from
   system Python.
-- Ships one console script, `pixelwatch`, with subcommands (`daemon`,
+- Ships one console script, `dotdisplay`, with subcommands (`daemon`,
   `status`, `send`), rather than several scripts.
 - Runs as a systemd **user** service, not a system unit: it needs the user's
   session state directory and no privileges.
 
 ## 14. Public shell
 
-- Remotes: `git@github.com:MrMarco74/claude-pixelwatch.git` and
-  `git@gitlab.internal.familie-frischkorn.de:apps/claude-pixelwatch.git`.
+- Remotes: `git@github.com:MrMarco74/claude_dot_display.git` and
+  `git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git`.
 - MIT licence.
-- Hand-authored SVG logo: a pixel-grid eye, in the panel's palette, reused as
-  the daemon's splash screen on the panel itself.
+- Author-supplied logo (`assets/logo.jpg`) with derived sizes. `assets/splash-64.png`
+  is a tight crop of its glowing star, quantized to 24 colours, reused as the
+  daemon's splash screen on the panel. The full logo is unreadable at 64x64;
+  this was rendered and confirmed, not assumed.
+- **Open:** the logo includes GitHub's Octocat, whose use GitHub's brand
+  guidelines restrict. To be resolved before the first public push.
 - README badges: CI, licence, Python versions, PyPI.
 - GitHub Actions: lint, tests, `claude plugin eval`.
 - `.claude-plugin/marketplace.json` in this repo, so
-  `/plugin marketplace add MrMarco74/claude-pixelwatch` works on day one, and
+  `/plugin marketplace add MrMarco74/claude_dot_display` works on day one, and
   identically from the internal GitLab.
 
 ### README: "Why we wrote our own protocol layer"
@@ -313,7 +317,7 @@ own plan, and its own implementation cycle.
 | Phase | Deliverable | Depends on |
 | --- | --- | --- |
 | **P0** | Repo foundation: licence, layout, logo, README skeleton, CI, dual remotes, marketplace manifest | — |
-| **P1** | BLE driver: capture rig, `PROTOCOL.md`, `pixelwatch.ble`, fake-transport tests | P0 |
+| **P1** | BLE driver: capture rig, `PROTOCOL.md`, `dotdisplay.ble`, fake-transport tests | P0 |
 | **P2** | Board and daemon: screens, renderer, sources, hwmon poller, systemd unit; `sensmonlight` cleanup | P1 |
 | **P3** | Claude plugin: hooks, skill, setup command, manifests, eval suite | P2 |
 
