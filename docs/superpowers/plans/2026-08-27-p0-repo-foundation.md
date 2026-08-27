@@ -20,8 +20,9 @@ Copied verbatim from the spec. Every task's requirements implicitly include thes
 - **Names:** repo, plugin id, and PyPI package are `claude-dot-display`. The console script and the Python module are `dotdisplay`.
 - **Licence is MIT**, and the licence-consistency test in Task 2 must keep passing for the life of the project.
 - **Remotes:** `git@github.com:MrMarco74/claude_dot_display.git` (`origin`) and `git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git` (`gitlab`).
-- Test command: `cd ~/Documents/gitlab/claude_dot_display && python -m pytest -q`. **Baseline is 0 tests** — this repo has none yet.
-- Lint command: `ruff check .`
+- Work inside `.venv` (see Task 1): this Ubuntu is PEP 668 externally managed, so system-wide `pip install` fails.
+- Test command: `cd ~/Documents/gitlab/claude_dot_display && .venv/bin/python -m pytest -q`. **Baseline is 0 tests** — this repo has none yet.
+- Lint command: `.venv/bin/ruff check .`
 - No real network calls in tests. No test above ~1s.
 
 ## File Structure
@@ -89,7 +90,7 @@ def test_version_string_is_a_release_number():
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd ~/Documents/gitlab/claude_dot_display && python -m pytest -q`
+Run: `cd ~/Documents/gitlab/claude_dot_display && .venv/bin/python -m pytest -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'dotdisplay'`
 
 - [ ] **Step 3: Write the implementation**
@@ -206,13 +207,18 @@ Note the explicit `sys.stderr`: `print_usage()` defaults to **stdout**, but this
 
 ```bash
 cd ~/Documents/gitlab/claude_dot_display
-python -m pip install -e ".[dev]"
-python -m pytest -q
-ruff check .
-dotdisplay --version
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m pytest -q
+.venv/bin/ruff check .
+.venv/bin/dotdisplay --version
 ```
 
 Expected: 3 tests PASS, ruff clean, `dotdisplay --version` prints `0.1.0`.
+
+**A venv is required, not optional.** This Ubuntu marks its system Python as
+externally managed (PEP 668), so `pip install` outside a venv fails with
+`error: externally-managed-environment`. `.venv/` is already gitignored.
 
 - [ ] **Step 5: Commit**
 
@@ -321,7 +327,7 @@ SOFTWARE.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest -q`
+Run: `.venv/bin/python -m pytest -q`
 Expected: PASS, 3 + 5 = 8 tests.
 
 - [ ] **Step 5: Commit**

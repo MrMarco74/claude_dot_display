@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: claude-dot-display
+Version: 0.1.0
+Summary: Show your Claude Code sessions on an iDotMatrix LED panel.
+Author-email: MrMarco <marco@familie-frischkorn.de>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/MrMarco74/claude_dot_display
+Project-URL: Source, https://github.com/MrMarco74/claude_dot_display
+Keywords: claude-code,idotmatrix,led-matrix,ble,status-board
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: System :: Monitoring
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: bleak>=1.0
+Requires-Dist: pillow>=11.0
+Requires-Dist: requests>=2.31
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.14; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-dot-display"
+version = "0.1.0"
+description = "Show your Claude Code sessions on an iDotMatrix LED panel."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "MrMarco", email = "marco@familie-frischkorn.de" }]
+keywords = ["claude-code", "idotmatrix", "led-matrix", "ble", "status-board"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "bleak>=1.0",
+    "pillow>=11.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-mock>=3.14", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/MrMarco74/claude_dot_display"
+Source = "https://github.com/MrMarco74/claude_dot_display"
+
+[project.scripts]
+dotdisplay = "dotdisplay.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,0 +1,2 @@
+[console_scripts]
+dotdisplay = dotdisplay.cli:main
