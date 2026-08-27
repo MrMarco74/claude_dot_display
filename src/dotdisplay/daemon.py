@@ -43,6 +43,25 @@ def render_board(config: Config, board: Board):
                               header)
 
 
+async def _show_splash(panel, board: Board, stop) -> None:
+    """Greet with the project mark for a moment after connecting.
+
+    Purely decorative, so every failure is swallowed. last_sent is cleared
+    afterwards, or the first real board would be suppressed as 'unchanged'.
+    """
+    try:
+        image = render.splash()
+        if image is not None:
+            await panel.send_image(image)
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), render.SPLASH_SECONDS)
+    except Exception as exc:          # noqa: BLE001 - decoration only
+        # Loading the asset is inside the try too: a decorative frame must
+        # never be able to break a panel connection, however it fails.
+        logger.debug("could not show the splash: %s", exc)
+    board.last_sent = None
+
+
 async def serve_local_queue(config: Config, panel) -> int:
     """Execute commands submitted by local shell callers.
 
@@ -175,6 +194,7 @@ async def run(config: Config) -> int:
         try:
             async with PanelClient(config.mac) as panel:
                 logger.info("panel connected")
+                await _show_splash(panel, board, stop)
                 while not stop.is_set():
                     await serve_commands(config, panel, board)
                     await tick(config, board, panel)
@@ -191,5 +211,8 @@ async def run(config: Config) -> int:
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), RECONNECT_DELAY_S)
 
+    # Remove the heartbeat, or shell callers would keep queueing into a void
+    # for HEARTBEAT_STALE_S after this process is gone.
+    _queue.clear_heartbeat(config)
     logger.info("stopping; releasing the panel")
     return 0

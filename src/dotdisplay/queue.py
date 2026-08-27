@@ -44,6 +44,15 @@ def beat(config) -> None:
     path.write_text(str(time.time()))
 
 
+def clear_heartbeat(config) -> None:
+    """Called on clean shutdown. Without it a stopped daemon still looks
+    alive for HEARTBEAT_STALE_S and callers queue into nothing."""
+    try:
+        _heartbeat_path(config).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def daemon_is_alive(config) -> bool:
     try:
         age = time.time() - _heartbeat_path(config).stat().st_mtime

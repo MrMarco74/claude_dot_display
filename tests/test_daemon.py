@@ -246,3 +246,26 @@ async def test_a_failing_local_command_is_answered_with_an_error(cfg):
     request_id = q.submit(cfg, {"type": "nonsense"})
     await d.serve_local_queue(cfg, FakePanel())
     assert q.await_result(cfg, request_id, timeout_s=1)["status"] == "error"
+
+
+async def test_the_splash_does_not_suppress_the_first_board(cfg, mocker):
+    """After the splash, last_sent must be cleared or the first real board
+    would look 'unchanged' and never be sent."""
+    board = d.Board(last_sent=b"stale")
+    panel = FakePanel()
+    stop = asyncio.Event()
+    stop.set()                       # skip the 3s wait
+    await d._show_splash(panel, board, stop)
+    assert board.last_sent is None
+    assert len(panel.images) == 1
+
+
+async def test_a_failing_splash_is_swallowed(cfg, mocker):
+    mocker.patch("dotdisplay.daemon.render.splash", side_effect=OSError("nope"))
+    board = d.Board()
+    stop = asyncio.Event()
+    stop.set()
+    try:
+        await d._show_splash(FakePanel(), board, stop)
+    except OSError:
+        raise AssertionError("splash failure escaped")

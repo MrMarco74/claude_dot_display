@@ -79,3 +79,16 @@ def test_a_stale_heartbeat_does_not_count(cfg):
     old = time.time() - q.HEARTBEAT_STALE_S - 5
     os.utime(path, (old, old))
     assert q.daemon_is_alive(cfg) is False
+
+
+def test_clearing_the_heartbeat_makes_the_daemon_look_gone(cfg):
+    """A stopped daemon must not keep callers queueing into a void for the
+    whole staleness window."""
+    q.beat(cfg)
+    assert q.daemon_is_alive(cfg) is True
+    q.clear_heartbeat(cfg)
+    assert q.daemon_is_alive(cfg) is False
+
+
+def test_clearing_a_heartbeat_that_is_not_there_is_fine(cfg):
+    q.clear_heartbeat(cfg)

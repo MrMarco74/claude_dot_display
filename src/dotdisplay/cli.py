@@ -16,6 +16,7 @@ from dotdisplay import __version__
 
 SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 STATES = ("running", "question", "issue", "done")
+QUEUE_TIMEOUT_S = 20
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -273,19 +274,24 @@ def _run_command(command: dict, as_json: bool) -> int:
               file=sys.stderr)
         return 1
 
+    async def direct():
+        async with PanelClient(config.mac) as panel:
+            return await commands.execute(panel, command)
+
+    result = None
     if queue.daemon_is_alive(config):
         request_id = queue.submit(config, command)
-        result = queue.await_result(config, request_id, timeout_s=60)
+        result = queue.await_result(config, request_id, timeout_s=QUEUE_TIMEOUT_S)
         if result is None:
-            print("timed out waiting for the board daemon", file=sys.stderr)
-            return 1
-    else:
-        async def go():
-            async with PanelClient(config.mac) as panel:
-                return await commands.execute(panel, command)
+            # The heartbeat can outlive a crashed daemon. Rather than fail,
+            # try the radio ourselves; if it really is held, the direct
+            # attempt reports that accurately.
+            print("board daemon did not answer; connecting directly",
+                  file=sys.stderr)
 
+    if result is None:
         try:
-            result = {"status": "done", "result": asyncio.run(go())}
+            result = {"status": "done", "result": asyncio.run(direct())}
         except Exception as exc:      # noqa: BLE001 - report, no traceback
             result = {"status": "error", "message": str(exc)}
 

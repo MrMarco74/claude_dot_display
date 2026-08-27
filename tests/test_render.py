@@ -133,3 +133,15 @@ def test_long_text_still_fits():
 
 def test_text_rendering_is_deterministic():
     assert r.render_text("HELLO").tobytes() == r.render_text("HELLO").tobytes()
+
+
+def test_the_splash_is_a_64x64_frame():
+    img = r.splash()
+    assert img is not None, "the splash asset is missing from the package"
+    assert img.size == (64, 64)
+
+
+def test_a_missing_splash_asset_returns_none_rather_than_raising(mocker):
+    """Decoration must never be able to break a panel connection."""
+    mocker.patch("importlib.resources.files", side_effect=OSError("gone"))
+    assert r.splash() is None

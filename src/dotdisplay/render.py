@@ -213,3 +213,20 @@ def render_text(text: str, colour=(255, 255, 255)) -> Image.Image:
                 y += line_h
             return img
     return img          # nothing fit; an empty frame beats a garbled one
+
+
+SPLASH_SECONDS = 3.0
+
+
+def splash():
+    """The project mark, shown briefly when the panel connects.
+
+    Returns None if the asset is missing rather than raising: a decorative
+    frame is never worth failing a connection over.
+    """
+    try:
+        from importlib.resources import files
+        with files("dotdisplay").joinpath("assets/splash.png").open("rb") as fh:
+            return Image.open(fh).convert("RGB")
+    except Exception:      # noqa: BLE001 - decoration must never break a connect
+        return None

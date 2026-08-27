@@ -189,13 +189,16 @@ def test_a_command_connects_directly_without_a_daemon(
     assert cli.main(["power", "on"]) == 0
 
 
-def test_a_queue_timeout_is_reported_not_swallowed(
+def test_a_queue_timeout_falls_back_and_reports_the_real_failure(
         tmp_path, monkeypatch, mocker, capsys):
+    """When the queue goes unanswered AND the radio is unreachable, the
+    caller must learn the actual reason, not 'timed out'."""
     _panel_env(tmp_path, monkeypatch)
     mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
     mocker.patch("dotdisplay.queue.await_result", return_value=None)
+    mocker.patch("dotdisplay.ble.PanelClient", side_effect=OSError("no radio"))
     assert cli.main(["power", "on"]) == 1
-    assert "timed out" in capsys.readouterr().err
+    assert "no radio" in capsys.readouterr().err
 
 
 def test_json_output_is_machine_readable(tmp_path, monkeypatch, mocker, capsys):
@@ -218,3 +221,26 @@ def test_every_command_reaches_the_queue(args, tmp_path, monkeypatch, mocker):
     mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
     mocker.patch("dotdisplay.queue.await_result", return_value={"status": "done"})
     assert cli.main(args) == 0
+
+
+def test_a_stale_heartbeat_falls_back_to_a_direct_connection(
+        tmp_path, monkeypatch, mocker, capsys):
+    """A crashed daemon leaves a heartbeat behind. Failing outright would
+    make every command unusable until it expires."""
+    _panel_env(tmp_path, monkeypatch)
+    mocker.patch("dotdisplay.queue.daemon_is_alive", return_value=True)
+    mocker.patch("dotdisplay.queue.await_result", return_value=None)
+
+    class FakePanel:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def power(self, on):
+            pass
+
+    mocker.patch("dotdisplay.ble.PanelClient", return_value=FakePanel())
+    assert cli.main(["power", "on"]) == 0
+    assert "connecting directly" in capsys.readouterr().err
