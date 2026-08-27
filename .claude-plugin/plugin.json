@@ -1,0 +1,9 @@
+{
+  "name": "claude-dot-display",
+  "description": "Show your Claude Code sessions on an iDotMatrix LED panel.",
+  "version": "0.1.0",
+  "author": {
+    "name": "MrMarco"
+  },
+  "homepage": "https://github.com/MrMarco74/claude_dot_display"
+}

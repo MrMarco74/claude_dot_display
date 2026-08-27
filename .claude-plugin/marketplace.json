@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-dot-display",
+  "description": "Ambient status board for Claude Code sessions on an LED matrix.",
+  "owner": {
+    "name": "MrMarco"
+  },
+  "plugins": [
+    {
+      "name": "claude-dot-display",
+      "description": "Show your Claude Code sessions on an iDotMatrix LED panel.",
+      "author": {
+        "name": "MrMarco"
+      },
+      "category": "productivity",
+      "source": "./",
+      "homepage": "https://github.com/MrMarco74/claude_dot_display"
+    }
+  ]
+}
