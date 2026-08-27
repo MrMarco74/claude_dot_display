@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="assets/logo.jpg" width="320" alt="claude-dot-display">
+<img src="https://raw.githubusercontent.com/MrMarco74/claude_dot_display/main/assets/logo.jpg" width="320" alt="claude-dot-display">
 
 # claude-dot-display
 
 **Your Claude Code sessions, on an LED matrix.**
 
 [![CI](https://github.com/MrMarco74/claude_dot_display/actions/workflows/ci.yml/badge.svg)](https://github.com/MrMarco74/claude_dot_display/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/MrMarco74/claude_dot_display/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
 
@@ -93,7 +93,7 @@ Alpha, and honest about it. The repository is being built in phases:
 Install the plugin today and it does nothing yet — it carries no hooks or
 skills until P3. It exists so the install path is real and testable.
 
-[`PROTOCOL.md`](PROTOCOL.md) is already worth reading if you own one of these
+[`PROTOCOL.md`](https://github.com/MrMarco74/claude_dot_display/blob/main/PROTOCOL.md) is already worth reading if you own one of these
 panels. Everything in it is marked with whether it has been replayed against
 real hardware yet — at this stage, none of it has.
 
@@ -120,7 +120,7 @@ wrote the protocol layer ourselves.
 derived from bytes observed on the wire against real hardware — the vendor's
 own phone application talking to the panel, captured over Bluetooth HCI and
 decoded. Protocol facts are not copyrightable, but provenance is what makes
-that defensible, so [`PROTOCOL.md`](PROTOCOL.md) records for every command
+that defensible, so [`PROTOCOL.md`](https://github.com/MrMarco74/claude_dot_display/blob/main/PROTOCOL.md) records for every command
 where it was captured and whether it has been replayed.
 
 ### It turned out faster, too
@@ -191,16 +191,16 @@ if make test; then dotdisplay fill 00ff00; else dotdisplay text "KAPUTT" --colou
 ```
 
 Text is rasterised on this side and sent as an image: the panel has no font
-of its own (see [`PROTOCOL.md`](PROTOCOL.md)). The size is chosen so the text
+of its own (see [`PROTOCOL.md`](https://github.com/MrMarco74/claude_dot_display/blob/main/PROTOCOL.md)). The size is chosen so the text
 fills as much of the panel as it can.
 
 ## For agents and LLMs
 
-[`AGENTS.md`](AGENTS.md) is the integration contract: the commands, the
+[`AGENTS.md`](https://github.com/MrMarco74/claude_dot_display/blob/main/AGENTS.md) is the integration contract: the commands, the
 `--json` output shape, and — more usefully — the constraints that are
 invisible from outside, such as the single radio owner and the fact that
 nothing can read back what the panel is showing.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/MrMarco74/claude_dot_display/blob/main/LICENSE).
