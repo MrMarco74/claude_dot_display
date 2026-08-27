@@ -208,3 +208,41 @@ async def test_a_stop_signal_ends_the_loop_cleanly(cfg, mocker):
     await asyncio.sleep(0.05)
     signal.raise_signal(signal.SIGTERM)
     assert await asyncio.wait_for(task, timeout=2) == 0
+
+
+async def test_the_daemon_beats_while_it_holds_the_radio(cfg, mocker):
+    """The heartbeat is how a shell caller knows to queue instead of
+    connecting, so it must be written whenever the radio is held."""
+    from dotdisplay import queue as q
+    mocker.patch("dotdisplay.daemon.sources.read_sessions", return_value=[])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    mocker.patch("dotdisplay.daemon.sources.ccusage_stats", return_value={})
+    mocker.patch("dotdisplay.daemon.sources.trends", return_value={})
+    await d.tick(cfg, d.Board(), FakePanel())
+    assert q.daemon_is_alive(cfg) is True
+
+
+async def test_local_queue_commands_are_executed_and_answered(cfg):
+    from dotdisplay import queue as q
+    request_id = q.submit(cfg, {"type": "power", "on": True})
+
+    class PowerPanel(FakePanel):
+        def __init__(self):
+            super().__init__()
+            self.on = None
+
+        async def power(self, on):
+            self.on = on
+
+    panel = PowerPanel()
+    assert await d.serve_local_queue(cfg, panel) == 1
+    assert panel.on is True
+    assert q.await_result(cfg, request_id, timeout_s=1)["status"] == "done"
+
+
+async def test_a_failing_local_command_is_answered_with_an_error(cfg):
+    """Silence would leave the caller waiting for its full timeout."""
+    from dotdisplay import queue as q
+    request_id = q.submit(cfg, {"type": "nonsense"})
+    await d.serve_local_queue(cfg, FakePanel())
+    assert q.await_result(cfg, request_id, timeout_s=1)["status"] == "error"

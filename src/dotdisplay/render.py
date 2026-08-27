@@ -175,3 +175,41 @@ def render_code(code: str) -> Image.Image:
         draw.text(((W - width) / 2, y), row, font=font, fill=CODE_COLOUR)
         y += CODE_FONT_SIZE + 4
     return img
+
+
+TEXT_SIZES = (26, 20, 16, 13, 11, 9, 8)   # largest first; first that fits wins
+
+
+def render_text(text: str, colour=(255, 255, 255)) -> Image.Image:
+    """Rasterise text to a full frame.
+
+    The device has no font -- the vendor application ships glyph bitmaps per
+    character (see PROTOCOL.md). Rendering here and sending an image is both
+    simpler and the fastest path we have.
+
+    Picks the largest size at which the text still fits, so a short word is
+    readable across a room and a long one is merely readable.
+    """
+    import textwrap
+
+    img, draw = _canvas()
+    words = str(text).split()
+    for size in TEXT_SIZES:
+        try:
+            font = ImageFont.truetype(_FONT_PATHS[0], size)
+        except OSError:
+            font = ImageFont.load_default()
+        char_w = max(1.0, draw.textlength("M", font=font))
+        per_line = max(1, int((W - 2 * MARGIN) / char_w))
+        lines = textwrap.wrap(" ".join(words), width=per_line) or [""]
+        line_h = size + 2
+        if len(lines) * line_h <= H and all(
+                draw.textlength(line, font=font) <= W - 2 * MARGIN
+                for line in lines):
+            y = (H - len(lines) * line_h) // 2
+            for line in lines:
+                width = draw.textlength(line, font=font)
+                draw.text(((W - width) / 2, y), line, font=font, fill=colour)
+                y += line_h
+            return img
+    return img          # nothing fit; an empty frame beats a garbled one

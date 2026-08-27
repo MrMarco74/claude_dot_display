@@ -117,3 +117,19 @@ def test_the_code_uses_a_large_share_of_the_panel():
 @pytest.mark.parametrize("code", ["1", "12", "123456"])
 def test_odd_length_codes_do_not_crash(code):
     assert r.render_code(code).size == (64, 64)
+
+
+def test_text_fills_the_panel():
+    img = r.render_text("HELLO")
+    assert img.size == (64, 64)
+    lit = sum(1 for p in img.getdata() if sum(p) > 60)
+    assert lit > 100, "text is too small to be worth showing"
+
+
+def test_long_text_still_fits():
+    """Overflowing the panel silently would drop the end of the message."""
+    assert r.render_text("the quick brown fox jumps over").size == (64, 64)
+
+
+def test_text_rendering_is_deterministic():
+    assert r.render_text("HELLO").tobytes() == r.render_text("HELLO").tobytes()

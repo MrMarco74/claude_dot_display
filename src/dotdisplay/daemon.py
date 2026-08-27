@@ -10,7 +10,8 @@ import logging
 import signal
 from dataclasses import dataclass
 
-from dotdisplay import render, sources
+from dotdisplay import commands, render, sources
+from dotdisplay import queue as _queue
 from dotdisplay.ble import PanelClient
 from dotdisplay.config import Config
 from dotdisplay.sources import CcusageCache
@@ -42,9 +43,34 @@ def render_board(config: Config, board: Board):
                               header)
 
 
+async def serve_local_queue(config: Config, panel) -> int:
+    """Execute commands submitted by local shell callers.
+
+    Without this, every one-shot command would fail while the board runs,
+    because the daemon owns the radio.
+    """
+    ran = 0
+    while True:
+        claimed = _queue.claim(config)
+        if not claimed:
+            return ran
+        request_id, body = claimed
+        try:
+            result = {"status": "done",
+                      "result": await commands.execute(panel, body)}
+        except Exception as exc:          # noqa: BLE001 - must always answer
+            result = {"status": "error", "message": str(exc)}
+        _queue.publish(config, request_id, result)
+        ran += 1
+
+
 async def tick(config: Config, board: Board, panel) -> bool:
     """One pass. Returns True if the panel was updated. Never raises: this
     runs unattended."""
+    # Beat here rather than in run(): tick only runs while a panel connection
+    # is held, which is exactly the condition the heartbeat advertises.
+    _queue.beat(config)
+    await serve_local_queue(config, panel)
     try:
         image = render_board(config, board)
     except Exception as exc:                  # noqa: BLE001 - unattended loop
@@ -72,21 +98,9 @@ async def tick(config: Config, board: Board, panel) -> bool:
 
 
 async def _execute(panel, command: dict) -> dict:
-    kind = command.get("type")
-    if kind == "set_brightness":
-        await panel.set_brightness(int(command["brightness_percent"]))
-    elif kind == "power":
-        await panel.power(bool(command["on"]))
-    elif kind == "send_image":
-        import base64
-        import io
-
-        from PIL import Image
-        raw = base64.b64decode(command["image_base64"])
-        await panel.send_image(Image.open(io.BytesIO(raw)))
-    else:
-        raise ValueError(f"unsupported command type {kind!r}")
-    return {"sent": True}
+    """Kept as a name so serve_commands is untouched; the work moved to
+    dotdisplay.commands so the CLI and the local queue share it."""
+    return await commands.execute(panel, command)
 
 
 async def serve_commands(config: Config, panel, board: Board | None = None) -> int:
