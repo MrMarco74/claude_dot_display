@@ -29,6 +29,39 @@ When nothing is running, the panel switches to a summary of your token usage.
 Underneath it is an original, MIT-licensed implementation of the iDotMatrix
 BLE protocol, usable on its own.
 
+## No panel? It still works
+
+`dotdisplay board` shows the same board in your terminal, and
+`dotdisplay statusline` puts a one-line summary wherever you want one. Neither
+needs Bluetooth, an address, or the daemon.
+
+```
+claude-dot-display            38% · reset 22:10
+───────────────────────────────────────────────
+● a-very-long-session waiting on you          3
+● hwmon-d7            issue                   7
+● kolonial            done                    0
+● storygen            running                12
+```
+
+The terminal view is not a mirror of the panel. Nine-character names, the 8px
+font and the four-row budget are consequences of a 64x64 LED matrix; a
+terminal has none of them, so it shows full names and spells the states out.
+
+To put the summary in Claude Code's status line, add to your `settings.json`:
+
+```json
+{
+  "statusLine": { "type": "command", "command": "dotdisplay statusline" }
+}
+```
+
+It prints nothing when no session is running, so it costs you no space when
+there is nothing to say. **The installer will not edit `settings.json` for
+you** — you may already have a status line, and replacing it is not ours to do.
+
+The LED matrix is the fun part, not the price of entry.
+
 ## Status
 
 Alpha, and honest about it. The repository is being built in phases:
@@ -41,7 +74,7 @@ Alpha, and honest about it. The repository is being built in phases:
 | P3 | Claude Code plugin | **done** — sessions report themselves |
 | P4 | Shell toolkit | **done** |
 | P5 | Agent integration guide | **done** |
-| P6 | Works without a panel | planned |
+| P6 | Works without a panel | **done** |
 
 Install the plugin today and it does nothing yet — it carries no hooks or
 skills until P3. It exists so the install path is real and testable.

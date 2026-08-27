@@ -268,4 +268,4 @@ async def test_a_failing_splash_is_swallowed(cfg, mocker):
     try:
         await d._show_splash(FakePanel(), board, stop)
     except OSError:
-        raise AssertionError("splash failure escaped")
+        raise AssertionError("splash failure escaped") from None

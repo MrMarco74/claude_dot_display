@@ -67,6 +67,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("clear", help="blank the panel")
 
+    board = sub.add_parser("board", help="show the board in this terminal")
+    board.add_argument("--watch", action="store_true", help="redraw until Ctrl-C")
+    board.add_argument("--no-colour", action="store_true")
+
+    sub.add_parser("statusline",
+                   help="one short line for a prompt or status bar")
+
     check = sub.add_parser(
         "check", help="show a code on the panel to confirm the address")
     check.add_argument("--code", help="use a fixed code instead of a random one")
@@ -312,6 +319,61 @@ _PANEL_COMMANDS = {
 }
 
 
+def _cmd_board(args) -> int:
+    """Show the board as text.
+
+    Needs no panel, no MAC and no daemon: this is the path for everyone who
+    does not own the hardware.
+    """
+    import time
+
+    from dotdisplay import sources
+    from dotdisplay.config import Config
+    from dotdisplay.presenters import text as presenter
+
+    config = Config.from_env()
+    colour = not args.no_colour and sys.stdout.isatty()
+
+    def once():
+        sessions = sources.read_local_sessions(config)
+        stats = ({} if sessions
+                 else sources.ccusage_stats(config, sources.CcusageCache()))
+        out = presenter.board(sessions, sources.read_header(), stats)
+        if colour:
+            for state, code in presenter.STATE_COLOURS.items():
+                word = presenter.STATE_WORDS[state]
+                out = out.replace(word, f"\033[38;5;{code}m{word}\033[0m")
+        print(out)
+
+    if not args.watch:
+        once()
+        return 0
+
+    try:
+        while True:
+            print("\033[2J\033[H", end="")
+            once()
+            time.sleep(config.poll_s)
+    except KeyboardInterrupt:
+        return 0
+
+
+def _cmd_statusline() -> int:
+    """Print one segment for a prompt.
+
+    Reads files and nothing else: this runs on every prompt render, so it
+    must never touch the radio or block.
+    """
+    from dotdisplay import sources
+    from dotdisplay.config import Config
+    from dotdisplay.presenters import text as presenter
+
+    line = presenter.statusline(sources.read_local_sessions(Config.from_env()))
+    if line:
+        print(line)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -326,6 +388,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_discover()
     if args.command == "check":
         return _cmd_check(args)
+    if args.command == "board":
+        return _cmd_board(args)
+    if args.command == "statusline":
+        return _cmd_statusline()
     if args.command in _PANEL_COMMANDS:
         return _run_command(_PANEL_COMMANDS[args.command](args), args.json)
 

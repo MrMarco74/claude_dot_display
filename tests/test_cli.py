@@ -244,3 +244,46 @@ def test_a_stale_heartbeat_falls_back_to_a_direct_connection(
     mocker.patch("dotdisplay.ble.PanelClient", return_value=FakePanel())
     assert cli.main(["power", "on"]) == 0
     assert "connecting directly" in capsys.readouterr().err
+
+
+def test_board_prints_sessions_without_any_panel(tmp_path, monkeypatch, capsys):
+    """No Bluetooth, no MAC, no daemon. This must still work -- that is the
+    entire point of the phase."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    monkeypatch.delenv("DOTDISPLAY_MAC", raising=False)
+    (tmp_path / "demo.json").write_text(
+        json.dumps({"name": "demo", "status": "issue", "stages_left": 4}))
+    assert cli.main(["board"]) == 0
+    out = capsys.readouterr().out
+    assert "demo" in out and "issue" in out
+
+
+def test_board_without_colour_emits_no_escapes(tmp_path, monkeypatch, capsys):
+    """Piping the board into a file should not fill it with escape codes."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    (tmp_path / "demo.json").write_text(
+        json.dumps({"name": "demo", "status": "issue"}))
+    cli.main(["board", "--no-colour"])
+    assert "\033[" not in capsys.readouterr().out
+
+
+def test_statusline_prints_one_line(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    (tmp_path / "demo.json").write_text(
+        json.dumps({"name": "demo", "status": "issue"}))
+    assert cli.main(["statusline"]) == 0
+    assert capsys.readouterr().out.count("\n") <= 1
+
+
+def test_statusline_is_silent_without_sessions(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    assert cli.main(["statusline"]) == 0
+    assert capsys.readouterr().out.strip() == ""
+
+
+def test_statusline_never_touches_the_radio(tmp_path, monkeypatch, mocker):
+    """It runs on every prompt render. Connecting would be unforgivable."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    panel = mocker.patch("dotdisplay.ble.PanelClient")
+    cli.main(["statusline"])
+    panel.assert_not_called()
