@@ -1,0 +1,135 @@
+import dataclasses
+import json
+import os
+import time
+
+import pytest
+import requests
+
+from dotdisplay import sources as s
+from dotdisplay.config import Config
+
+
+@pytest.fixture
+def cfg(tmp_path):
+    return dataclasses.replace(Config.from_env(), state_dir=tmp_path,
+                               hwmon_url="", setup_key="")
+
+
+def _write(cfg, name, status="running", stages_left=None, age_s=0):
+    body = {"name": name, "status": status}
+    if stages_left is not None:
+        body["stages_left"] = stages_left
+    path = cfg.state_dir / f"{name}.json"
+    path.write_text(json.dumps(body))
+    if age_s:
+        old = time.time() - age_s
+        os.utime(path, (old, old))
+    return path
+
+
+def test_local_sessions_are_read(cfg):
+    _write(cfg, "hwmon-d7", "issue", 2)
+    assert s.read_local_sessions(cfg) == [
+        {"name": "hwmon-d7", "status": "issue", "stages_left": 2}]
+
+
+def test_missing_state_directory_is_not_an_error(cfg):
+    cfg = dataclasses.replace(cfg, state_dir=cfg.state_dir / "nope")
+    assert s.read_local_sessions(cfg) == []
+
+
+def test_stale_sessions_age_out(cfg):
+    """A session killed without its SessionEnd hook must fade off the board,
+    not sit there looking alive forever."""
+    _write(cfg, "ghost", age_s=cfg.stale_after_s + 60)
+    _write(cfg, "alive")
+    assert [x["name"] for x in s.read_local_sessions(cfg)] == ["alive"]
+
+
+def test_malformed_file_is_skipped_not_fatal(cfg):
+    (cfg.state_dir / "broken.json").write_text("{not json")
+    _write(cfg, "good")
+    assert [x["name"] for x in s.read_local_sessions(cfg)] == ["good"]
+
+
+def test_file_without_a_name_is_skipped(cfg):
+    (cfg.state_dir / "x.json").write_text('{"status": "running"}')
+    assert s.read_local_sessions(cfg) == []
+
+
+def test_invalid_status_is_skipped(cfg):
+    """A status we cannot colour would render as plain white and quietly
+    misreport a session's state."""
+    (cfg.state_dir / "x.json").write_text('{"name": "x", "status": "busy"}')
+    assert s.read_local_sessions(cfg) == []
+
+
+def test_remote_sessions_are_merged(cfg, mocker):
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid")
+    _write(cfg, "local")
+    mocker.patch("dotdisplay.sources.fetch_remote_sessions",
+                 return_value=[{"name": "remote", "status": "running"}])
+    assert sorted(x["name"] for x in s.read_sessions(cfg)) == ["local", "remote"]
+
+
+def test_remote_failure_leaves_local_sessions_intact(cfg, mocker):
+    """The board must not go blank because a server is down."""
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid")
+    _write(cfg, "local")
+    mocker.patch("dotdisplay.sources.fetch_remote_sessions",
+                 side_effect=requests.exceptions.ConnectionError("down"))
+    assert [x["name"] for x in s.read_sessions(cfg)] == ["local"]
+
+
+def test_no_remote_configured_means_no_request(cfg, mocker):
+    get = mocker.patch("dotdisplay.sources.requests.get")
+    s.read_sessions(cfg)
+    get.assert_not_called()
+
+
+def test_header_missing_file_is_tolerated(mocker, tmp_path):
+    mocker.patch("dotdisplay.sources.RATE_LIMIT_PATH", tmp_path / "nope.json")
+    assert s.read_header() is None
+
+
+def test_header_is_parsed(mocker, tmp_path):
+    path = tmp_path / "rl.json"
+    path.write_text(json.dumps(
+        {"five_hour": {"used_percentage": 42, "resets_at": 1787861400}}))
+    mocker.patch("dotdisplay.sources.RATE_LIMIT_PATH", path)
+    header = s.read_header()
+    assert header["pct"] == 42
+    assert ":" in header["reset"]
+
+
+def test_ccusage_is_cached(cfg, mocker):
+    """ccusage parses ~1160 transcript files; calling it per poll would make
+    the loop unusable."""
+    run = mocker.patch("dotdisplay.sources._run_ccusage",
+                       return_value={"today": 1, "out": 1, "cache": 1,
+                                     "read": 1, "all": 1})
+    cache = s.CcusageCache()
+    s.ccusage_stats(cfg, cache)
+    s.ccusage_stats(cfg, cache)
+    assert run.call_count == 1
+
+
+def test_ccusage_failure_returns_the_last_good_value(cfg, mocker):
+    run = mocker.patch("dotdisplay.sources._run_ccusage",
+                       return_value={"today": 5, "out": 1, "cache": 1,
+                                     "read": 1, "all": 1})
+    cache = s.CcusageCache()
+    s.ccusage_stats(cfg, cache)
+    cache.fetched_at = 0                       # force a refresh
+    run.side_effect = OSError("ccusage gone")
+    assert s.ccusage_stats(cfg, cache)["today"] == 5
+
+
+def test_trends_need_a_previous_day(tmp_path):
+    """A metric with no baseline gets NO arrow -- a decorative arrow would
+    imply information that does not exist."""
+    path = tmp_path / "trend.json"
+    assert s.trends({"today": 10}, path) == {}          # first ever run
+    path.write_text(json.dumps({"date": "2000-01-01", "stats": {"today": 5}}))
+    assert s.trends({"today": 10}, path) == {"today": True}
