@@ -37,7 +37,7 @@ Alpha, and honest about it. The repository is being built in phases:
 | --- | --- | --- |
 | P0 | Repo foundation | **done** |
 | P1 | BLE driver | **done** — verified against hardware |
-| P2 | Board, renderer, daemon | not started |
+| P2 | Board, renderer, daemon | **done** — running as a service |
 | P3 | Claude Code plugin | not started |
 
 Install the plugin today and it does nothing yet — it carries no hooks or
