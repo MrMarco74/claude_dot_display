@@ -40,7 +40,7 @@ Alpha, and honest about it. The repository is being built in phases:
 | P2 | Board, renderer, daemon | **done** — running as a service |
 | P3 | Claude Code plugin | **done** — sessions report themselves |
 | P4 | Shell toolkit | **done** |
-| P5 | Agent integration guide | planned |
+| P5 | Agent integration guide | **done** |
 | P6 | Works without a panel | planned |
 
 Install the plugin today and it does nothing yet — it carries no hooks or
@@ -146,6 +146,13 @@ if make test; then dotdisplay fill 00ff00; else dotdisplay text "KAPUTT" --colou
 Text is rasterised on this side and sent as an image: the panel has no font
 of its own (see [`PROTOCOL.md`](PROTOCOL.md)). The size is chosen so the text
 fills as much of the panel as it can.
+
+## For agents and LLMs
+
+[`AGENTS.md`](AGENTS.md) is the integration contract: the commands, the
+`--json` output shape, and — more usefully — the constraints that are
+invisible from outside, such as the single radio owner and the fact that
+nothing can read back what the panel is showing.
 
 ## Licence
 
