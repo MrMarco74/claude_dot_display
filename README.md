@@ -38,7 +38,10 @@ Alpha, and honest about it. The repository is being built in phases:
 | P0 | Repo foundation | **done** |
 | P1 | BLE driver | **done** — verified against hardware |
 | P2 | Board, renderer, daemon | **done** — running as a service |
-| P3 | Claude Code plugin | not started |
+| P3 | Claude Code plugin | **done** — sessions report themselves |
+| P4 | Shell toolkit | planned |
+| P5 | Agent integration guide | planned |
+| P6 | Works without a panel | planned |
 
 Install the plugin today and it does nothing yet — it carries no hooks or
 skills until P3. It exists so the install path is real and testable.
