@@ -32,8 +32,25 @@ No pairing is needed; the panel accepts connections unpaired.
 | `discover` | `dotdisplay discover` |
 | `check` | `dotdisplay check` |
 | `daemon` | `dotdisplay daemon` — runs the session board |
+| `board` | `dotdisplay board` — the board as text, **no panel needed** |
+| `statusline` | `dotdisplay statusline` — one line for a prompt |
 
 Colours are always **six hex digits**, no `#`.
+
+### Reading the board without hardware
+
+`board` and `statusline` need no Bluetooth, no address and no daemon. They
+read the same session files the panel is driven from, so they work on any
+machine — including one that has never seen an LED matrix.
+
+```bash
+dotdisplay board                # full view; --watch to redraw, --no-colour to pipe
+dotdisplay statusline           # !hwmon-d7 ?storygen *3
+```
+
+`statusline` names the sessions that need a human and counts the rest, and
+prints nothing when no session is running. Use it when you want to report
+state to someone without assuming they can see a panel.
 
 ## Output contract
 
@@ -60,6 +77,7 @@ These are the things that will otherwise cost you a wrong assumption.
 | **`check` needs a human** | It proves the address only if someone confirms the code by eye. Do not treat exit 0 as proof |
 | **Session names are truncated to 9 characters** | A longer name will not round-trip through the display |
 | **The panel is not a log** | It shows the last thing sent. Writing to it in a loop produces a blur, not a history |
+| **`board` and `statusline` are the exception** | They touch no radio at all, so they are safe to call freely — including while the daemon runs |
 
 ## Do not
 

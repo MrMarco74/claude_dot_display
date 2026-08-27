@@ -268,6 +268,21 @@ Two screens: the session board, and an idle screen of token statistics when no
 session is running. Both share a header showing the account-wide five-hour
 window.
 
+### The panel is one presenter, not the model
+
+`sources.py` produces the model — sessions, header, usage. `render.py` turns
+that into a 64x64 image; `presenters/text.py` turns the same model into text
+for a terminal and a status line.
+
+This split is deliberate and was arrived at by measurement: mirroring the
+panel's pixels into a terminal costs 59KB of escape sequences per frame, and,
+worse, imports constraints that exist only because of the hardware — the
+nine-character names, the 8px font, the four-row budget. A terminal has none
+of them, so the text presenter shows full names and spells the states out.
+
+The consequence that matters: **the product works with no panel at all.**
+The LED matrix is the flourish, not the entry fee.
+
 ## 13. Packaging and runtime
 
 - Python 3.11+, matching what the target hosts already run.

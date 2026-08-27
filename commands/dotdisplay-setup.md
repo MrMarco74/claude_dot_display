@@ -49,3 +49,20 @@ Set up the claude-dot-display board on this machine.
    - To keep the board running when they are not logged in:
 
          loginctl enable-linger $USER
+
+   - The board is also readable without the panel:
+
+         dotdisplay board          # full view in the terminal
+         dotdisplay statusline     # one line, e.g. !hwmon-d7 ?storygen *3
+
+7. Offer the status line, but **do not edit `settings.json` yourself**. Show
+   the snippet and let the user decide:
+
+   ```json
+   { "statusLine": { "type": "command", "command": "dotdisplay statusline" } }
+   ```
+
+   If they already have a status line, warn them: replacing it may break
+   whatever it was doing. Several status-line scripts print nothing and exist
+   purely for a side effect, so an empty-looking one is not an unused one —
+   wrap it instead of replacing it.
