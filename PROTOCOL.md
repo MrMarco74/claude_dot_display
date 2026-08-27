@@ -3,19 +3,30 @@
 Derived clean-room from traffic observed on the wire against a physical
 64x64 unit. **No GPL source was read.** See "Provenance" at the end.
 
-> **Status: observed, not yet replayed.** Every frame below was captured from
-> the vendor's own Android application. None has yet been transmitted by our
-> own code and confirmed to change the panel. Until an entry says
-> `replayed: yes`, treat it as a well-supported reading of the wire, not as a
-> proven command.
+> **Status: the core command set is verified against hardware.** Every frame
+> below was first captured from the vendor's own Android application, then
+> re-sent by this project's own driver and confirmed by photographing the
+> physical panel. Entries still marked `replayed: no` are readings of the
+> wire, not proven commands -- treat them accordingly.
 
 ## Transport
 
 | Property | Value |
 | --- | --- |
-| Write handle | `0x0006` (ATT Write Command, `0x52`) |
-| Notify handle | `0x0009` |
+| Service | `000000fa-0000-1000-8000-00805f9b34fb` |
+| Write characteristic | `0000fa02-0000-1000-8000-00805f9b34fb` (declaration `0x0005`, value `0x0006`) |
+| Notify characteristic | `0000fa03-0000-1000-8000-00805f9b34fb` (declaration `0x0008`, value `0x0009`) |
+| Negotiated MTU | 517, so writes up to 514 bytes |
 | Max write size observed | 509 bytes |
+
+The captures record ATT *handles*; the UUIDs above were read from the panel
+directly. The handle in a capture is the characteristic's **value** handle,
+one above its declaration handle -- which is why `0x0006` in the traffic
+corresponds to the characteristic declared at `0x0005`.
+
+**BlueZ reports the 23-byte default MTU until it is explicitly acquired.**
+Taking that at face value caps writes at 20 bytes and makes a full frame
+roughly six times slower than necessary.
 
 Large payloads are split across many writes; the protocol's own framing —
 not the ATT layer — defines message boundaries.
@@ -46,7 +57,7 @@ The slider emits a value per movement step, so a capture of one adjustment
 contains dozens of these.
 
 - observed: `captures/vendor-app-2026-08-27.btsnoop`, blocks 2 and 3
-- replayed: **no**
+- replayed: **yes**, 2026-08-27 — panel visibly dimmed and brightened
 
 ### Power
 
@@ -55,7 +66,7 @@ contains dozens of these.
 ```
 
 - observed: same capture, blocks 4 (off) and 5 (on)
-- replayed: **no**
+- replayed: **yes**, 2026-08-27 — panel went fully dark, then returned
 
 ### Draw a single pixel
 
@@ -69,7 +80,7 @@ Confirmed by content: freehand strokes in the app produced runs of these with
 `ff 00 00` (red) and `00 00 ff` (blue) exactly matching the colour selected.
 
 - observed: same capture, blocks 7, 9, 11
-- replayed: **no**
+- replayed: **yes**, 2026-08-27 — 32 pixels drawn as a clean diagonal
 
 ### Set display mode
 
@@ -81,13 +92,14 @@ Sent immediately before every bulk image transfer. `04 01 00` appears at the
 end of a session.
 
 - observed: same capture, blocks 12-16 (leading write), block 17
-- replayed: **no**
+- replayed: **yes**, 2026-08-27 — precedes every successful image upload
 
 ## Bulk transfer — images and animations
 
 This is the fast path, and the reason this project exists in its current
-form. A full 64x64 frame transfers in **~0.9 s**, against roughly 6 s for the
-per-pixel approach used by the existing GPL libraries.
+form. A full 64x64 frame transfers in **0.77 s** from this driver (measured,
+2026-08-27), against ~0.9 s from the vendor application and roughly 6 s for
+the per-pixel approach used by the existing GPL libraries.
 
 ### Chunk header (9 bytes)
 
@@ -114,7 +126,7 @@ Raw **RGB888**, **row-major**, origin **top-left**:
 total_length = 64 * 64 * 3 = 12288
 chunks       = 3 x 4105 bytes  (9 header + 4096 data)
 wire total   = 5 (mode) + 3 * 4105 = 12320 bytes
-duration     = ~0.9 s
+duration     = 0.77 s measured from this driver
 ```
 
 Pixel `i` occupies bytes `3i, 3i+1, 3i+2` and sits at `x = i % 64`,
@@ -138,7 +150,12 @@ over roughly 33 pixels with one full-intensity centre. Our own encoder should
 send exact pixels and skip that step.
 
 - observed: `captures/vendor-app-2026-08-27.btsnoop`, blocks 12-16
-- replayed: **no**
+- replayed: **yes**, 2026-08-27 — solid colour fills the panel; a four-corner
+  marker (red top-left, white top-right, green bottom-left, blue bottom-right)
+  appeared exactly as encoded, confirming row-major order and a top-left
+  origin end to end
+- measured: **0.77 s** per full frame from this driver, against ~0.9 s from
+  the vendor application
 
 ### Animation payload
 

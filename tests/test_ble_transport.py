@@ -53,3 +53,17 @@ async def test_no_pacing_means_no_sleeping(mocker):
     await fake.connect()
     await fake.send(bytes(4105))
     sleep.assert_not_awaited()
+
+
+async def test_split_respects_a_narrowed_write_limit():
+    """BlueZ reports a 23-byte MTU until it is acquired. If that value is
+    what we get, writes must shrink to fit rather than be rejected."""
+    fake = t.FakeTransport()
+    await fake.connect()
+    fake.max_write = 20
+    await fake.send(bytes(100))
+    assert [len(w) for w in fake.writes] == [20, 20, 20, 20, 20]
+
+
+async def test_default_write_limit_is_the_captured_size():
+    assert t.FakeTransport().max_write == t.MAX_WRITE == 509

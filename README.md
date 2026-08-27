@@ -36,7 +36,7 @@ Alpha, and honest about it. The repository is being built in phases:
 | Phase | What | State |
 | --- | --- | --- |
 | P0 | Repo foundation | **done** |
-| P1 | BLE driver | protocol documented, driver not written |
+| P1 | BLE driver | **done** — verified against hardware |
 | P2 | Board, renderer, daemon | not started |
 | P3 | Claude Code plugin | not started |
 
@@ -77,8 +77,9 @@ where it was captured and whether it has been replayed.
 
 Going to the wire directly answered a question the existing libraries had not:
 how the vendor app uploads a full frame so quickly. It sends the panel raw
-RGB888 in three chunks and completes in about **0.9 seconds**. The per-pixel
-approach the GPL libraries use takes roughly **6 seconds** for the same frame.
+RGB888 in three chunks. This driver does the same in a **measured 0.77
+seconds** — the per-pixel approach the GPL libraries use takes roughly **6
+seconds** for the same frame.
 
 The pixel ordering — row-major, origin top-left — was established by
 uploading three images that differ from a black baseline by exactly one pixel,

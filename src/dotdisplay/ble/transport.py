@@ -32,6 +32,8 @@ class BaseTransport:
     def __init__(self, pacing_s: float = DEFAULT_PACING_S):
         self.pacing_s = pacing_s
         self.connected = False
+        # Narrowed to the negotiated MTU on connect; see BleakTransport.
+        self.max_write = MAX_WRITE
 
     async def connect(self) -> None:
         self.connected = True
@@ -43,7 +45,8 @@ class BaseTransport:
         """Write one protocol frame, split to fit the ATT write limit."""
         if not self.connected:
             raise NotConnected("connect() first")
-        parts = [frame[i: i + MAX_WRITE] for i in range(0, len(frame), MAX_WRITE)]
+        limit = self.max_write
+        parts = [frame[i: i + limit] for i in range(0, len(frame), limit)]
         for index, part in enumerate(parts):
             if index and self.pacing_s:
                 await asyncio.sleep(self.pacing_s)
@@ -76,7 +79,30 @@ class BleakTransport(BaseTransport):
         self._client = BleakClient(self.address)
         await self._client.connect()
         self.connected = True
-        logger.info("connected to %s", self.address)
+        self.max_write = min(MAX_WRITE, await self._negotiated_mtu() - 3)
+        logger.info("connected to %s, writing up to %d bytes at a time",
+                    self.address, self.max_write)
+
+    async def _negotiated_mtu(self) -> int:
+        """Ask BlueZ what the MTU actually is.
+
+        BlueZ reports the 23-byte default until the MTU is explicitly
+        acquired, which would cap writes at 20 bytes and make a full frame
+        roughly six times slower than it needs to be. Measured on this
+        hardware: 517.
+
+        `_acquire_mtu` is private bleak API and exists only on the BlueZ
+        backend, so a missing or failing call degrades to the reported value
+        rather than breaking the connection.
+        """
+        acquire = getattr(getattr(self._client, "_backend", None),
+                          "_acquire_mtu", None)
+        if acquire is not None:
+            try:
+                await acquire()
+            except Exception as exc:      # noqa: BLE001 - never fail connect
+                logger.debug("could not acquire MTU, using default: %s", exc)
+        return self._client.mtu_size
 
     async def disconnect(self) -> None:
         self.connected = False
