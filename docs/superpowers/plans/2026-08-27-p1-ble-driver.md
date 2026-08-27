@@ -147,11 +147,17 @@ Every frame begins with its own total length as a little-endian u16.
 """
 
 WIDTH = HEIGHT = 64
+LENGTH_FIELD = 2
 
 
 def _frame(body: bytes) -> bytes:
-    """Prefix a body with the frame's own total length."""
-    return len(body).to_bytes(2, "little") + body
+    """Prefix a body with the frame's own total length.
+
+    The length counts *itself*: a three-byte body is declared as 5, exactly
+    as observed on the wire. Deriving it from the body rather than hard-coding
+    a constant per command means a frame can never disagree with its header.
+    """
+    return (len(body) + LENGTH_FIELD).to_bytes(2, "little") + body
 
 
 def _check_colour(rgb: tuple[int, int, int]) -> bytes:
@@ -181,9 +187,10 @@ def draw_pixel(x: int, y: int, rgb: tuple[int, int, int]) -> bytes:
     return _frame(bytes([0x05, 0x01, 0x00]) + _check_colour(rgb) + bytes([x, y]))
 ```
 
-Note the two-byte length is computed from the body rather than hard-coded, so
-a frame can never disagree with its own header — which is exactly what
-`test_every_frame_declares_its_own_length` pins down.
+Note the length field **counts itself**: a three-byte body is declared as 5.
+That is what the captures show, and it is an easy off-by-two to get wrong —
+`test_every_frame_declares_its_own_length` and the byte-exact frame tests both
+catch it immediately.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
