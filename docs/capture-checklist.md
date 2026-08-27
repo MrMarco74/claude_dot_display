@@ -16,7 +16,8 @@ Install on marcohp:
 sudo apt install android-tools-adb tshark
 ```
 
-Already present: `btmon`, `bluetoothctl`, adapter `B8:9A:2A:37:57:48`.
+Already present: `btmon`, `bluetoothctl`, and a working Bluetooth adapter
+(check with `bluetoothctl list`).
 
 Create somewhere to put the results:
 

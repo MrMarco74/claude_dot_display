@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "MrMarco", email = "marco@familie-frischkorn.de" }]
+authors = [{ name = "MrMarco", email = "MrMarco74@users.noreply.github.com" }]
 keywords = ["claude-code", "idotmatrix", "led-matrix", "ble", "status-board"]
 classifiers = [
     "Development Status :: 3 - Alpha",

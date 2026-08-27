@@ -6,3 +6,6 @@ captures/
 *.log
 *.zip
 *.btsnoop
+*.egg-info/
+build/
+dist/

@@ -19,7 +19,7 @@ Copied verbatim from the spec. Every task's requirements implicitly include thes
 - **The clean-room rule is binding from day one.** Do not open GPL iDotMatrix source (`derkalle4/python3-idotmatrix-client`, `markusressel/idotmatrix-api-client`, `python3-idotmatrix-library`) at any point, in any task. Observing wire traffic is permitted; reading their code is not.
 - **Names:** repo, plugin id, and PyPI package are `claude-dot-display`. The console script and the Python module are `dotdisplay`.
 - **Licence is MIT**, and the licence-consistency test in Task 2 must keep passing for the life of the project.
-- **Remotes:** `git@github.com:MrMarco74/claude_dot_display.git` (`origin`) and `git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git` (`gitlab`).
+- **Remotes:** `git@github.com:MrMarco74/claude_dot_display.git` (`origin`) and `git@<internal-gitlab>:apps/claude_dot_display.git` (`gitlab`).
 - Work inside `.venv` (see Task 1): this Ubuntu is PEP 668 externally managed, so system-wide `pip install` fails.
 - Test command: `cd ~/Documents/gitlab/claude_dot_display && .venv/bin/python -m pytest -q`. **Baseline is 0 tests** — this repo has none yet.
 - Lint command: `.venv/bin/ruff check .`
@@ -110,7 +110,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "MrMarco", email = "marco@familie-frischkorn.de" }]
+authors = [{ name = "MrMarco", email = "MrMarco74@users.noreply.github.com" }]
 keywords = ["claude-code", "idotmatrix", "led-matrix", "ble", "status-board"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -740,7 +740,7 @@ git remote -v
 - [ ] **Step 3: Add the GitLab remote and push**
 
 ```bash
-git remote add gitlab git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git
+git remote add gitlab git@<internal-gitlab>:apps/claude_dot_display.git
 git push -u gitlab main
 ```
 

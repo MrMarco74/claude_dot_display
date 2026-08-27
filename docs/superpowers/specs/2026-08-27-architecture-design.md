@@ -284,7 +284,7 @@ window.
 ## 14. Public shell
 
 - Remotes: `git@github.com:MrMarco74/claude_dot_display.git` and
-  `git@gitlab.internal.familie-frischkorn.de:apps/claude_dot_display.git`.
+  `git@<internal-gitlab>:apps/claude_dot_display.git`.
 - MIT licence.
 - Author-supplied logo (`assets/logo.jpg`) with derived sizes. `assets/splash-64.png`
   is a tight crop of its glowing star, quantized to 24 colours, reused as the
