@@ -39,7 +39,7 @@ Alpha, and honest about it. The repository is being built in phases:
 | P1 | BLE driver | **done** — verified against hardware |
 | P2 | Board, renderer, daemon | **done** — running as a service |
 | P3 | Claude Code plugin | **done** — sessions report themselves |
-| P4 | Shell toolkit | planned |
+| P4 | Shell toolkit | **done** |
 | P5 | Agent integration guide | planned |
 | P6 | Works without a panel | planned |
 
@@ -120,6 +120,32 @@ pipx install claude-dot-display
 ```
 
 Not yet published — see Status.
+
+## Shell usage
+
+Every command works **whether or not the board daemon is running**. If it is,
+the command is queued and the daemon executes it; if not, the CLI connects
+directly. A script does not have to know which.
+
+```bash
+dotdisplay text "BUILD OK" --colour 00ff00
+dotdisplay fill 0000ff
+dotdisplay pixel 0 0 ff0000
+dotdisplay brightness 40
+dotdisplay power off
+dotdisplay clear
+```
+
+Add `--json` for one machine-readable object per command; the exit code is
+`0` only when its `status` is `done`.
+
+```bash
+if make test; then dotdisplay fill 00ff00; else dotdisplay text "KAPUTT" --colour ff0000; fi
+```
+
+Text is rasterised on this side and sent as an image: the panel has no font
+of its own (see [`PROTOCOL.md`](PROTOCOL.md)). The size is chosen so the text
+fills as much of the panel as it can.
 
 ## Licence
 
