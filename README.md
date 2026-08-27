@@ -6,10 +6,12 @@
 
 **Your Claude Code sessions, on an LED matrix.**
 
+[![PyPI](https://img.shields.io/pypi/v/claude-dot-display.svg)](https://pypi.org/project/claude-dot-display/)
 [![CI](https://github.com/MrMarco74/claude_dot_display/actions/workflows/ci.yml/badge.svg)](https://github.com/MrMarco74/claude_dot_display/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/MrMarco74/claude_dot_display/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
+[![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-D97757)](https://claude.com/claude-code)
 
 </div>
 
@@ -92,6 +94,12 @@ Alpha, and honest about it. The repository is being built in phases:
 
 Install the plugin today and it does nothing yet — it carries no hooks or
 skills until P3. It exists so the install path is real and testable.
+
+**Written with Claude Code.** Essentially all of the code, the protocol
+document and these docs were produced by an AI pair, directed and reviewed by
+a human, with every hardware claim verified by photographing the panel. That
+is worth knowing before you read the code, and worth saying plainly rather
+than leaving you to infer it from the name.
 
 [`PROTOCOL.md`](https://github.com/MrMarco74/claude_dot_display/blob/main/PROTOCOL.md) is already worth reading if you own one of these
 panels. Everything in it is marked with whether it has been replayed against
