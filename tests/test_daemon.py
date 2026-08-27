@@ -107,3 +107,73 @@ async def test_missing_mac_is_refused_early(cfg):
     nothing."""
     with pytest.raises(SystemExit):
         await d.run(dataclasses.replace(cfg, mac=""))
+
+
+async def test_commands_are_executed_and_reported(cfg, mocker):
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid",
+                              setup_key="k")
+    mocker.patch("dotdisplay.daemon.sources.claim_command",
+                 side_effect=[("abc", {"type": "set_brightness",
+                                       "brightness_percent": 40}), None])
+    report = mocker.patch("dotdisplay.daemon.sources.report_result")
+
+    class BrightPanel(FakePanel):
+        def __init__(self):
+            super().__init__()
+            self.brightness = None
+
+        async def set_brightness(self, pct):
+            self.brightness = pct
+
+    panel = BrightPanel()
+    assert await d.serve_commands(cfg, panel) == 1
+    assert panel.brightness == 40
+    assert report.call_args.args[1] == "abc"
+    assert report.call_args.args[2]["status"] == "done"
+
+
+async def test_a_failing_command_is_reported_as_an_error(cfg, mocker):
+    """An unreported failure leaves the command stuck in the server's
+    inflight directory until a sweep expires it."""
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid",
+                              setup_key="k")
+    mocker.patch("dotdisplay.daemon.sources.claim_command",
+                 side_effect=[("abc", {"type": "nonsense"}), None])
+    report = mocker.patch("dotdisplay.daemon.sources.report_result")
+    await d.serve_commands(cfg, FakePanel())
+    assert report.call_args.args[2]["status"] == "error"
+
+
+async def test_no_hwmon_url_means_no_polling(cfg, mocker):
+    claim = mocker.patch("dotdisplay.daemon.sources.claim_command")
+    assert await d.serve_commands(cfg, FakePanel()) == 0
+    claim.assert_not_called()
+
+
+async def test_a_command_invalidates_the_cached_board(cfg, mocker):
+    """A command paints over the board. The cache must forget what it sent,
+    or the next tick would see 'no change' and leave the command's image up
+    until session state happened to move."""
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid",
+                              setup_key="k")
+    mocker.patch("dotdisplay.daemon.sources.claim_command",
+                 side_effect=[("abc", {"type": "power", "on": True}), None])
+    mocker.patch("dotdisplay.daemon.sources.report_result")
+
+    class PowerPanel(FakePanel):
+        async def power(self, on):
+            pass
+
+    board = d.Board(last_sent=b"something")
+    await d.serve_commands(cfg, PowerPanel(), board=board)
+    assert board.last_sent is None
+
+
+async def test_a_claim_failure_ends_the_drain_quietly(cfg, mocker):
+    """hwmon being unreachable is normal; it must not stop the board."""
+    import requests
+    cfg = dataclasses.replace(cfg, hwmon_url="https://example.invalid",
+                              setup_key="k")
+    mocker.patch("dotdisplay.daemon.sources.claim_command",
+                 side_effect=requests.exceptions.ConnectionError("down"))
+    assert await d.serve_commands(cfg, FakePanel()) == 0

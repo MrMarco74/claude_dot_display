@@ -65,6 +65,62 @@ async def tick(config: Config, board: Board, panel) -> bool:
     return True
 
 
+async def _execute(panel, command: dict) -> dict:
+    kind = command.get("type")
+    if kind == "set_brightness":
+        await panel.set_brightness(int(command["brightness_percent"]))
+    elif kind == "power":
+        await panel.power(bool(command["on"]))
+    elif kind == "send_image":
+        import base64
+        import io
+
+        from PIL import Image
+        raw = base64.b64decode(command["image_base64"])
+        await panel.send_image(Image.open(io.BytesIO(raw)))
+    else:
+        raise ValueError(f"unsupported command type {kind!r}")
+    return {"sent": True}
+
+
+async def serve_commands(config: Config, panel, board: Board | None = None) -> int:
+    """Drain hwmon's command queue. Returns how many commands ran.
+
+    Runs before tick() so an explicit human request takes priority over the
+    ambient board.
+    """
+    if not config.hwmon_url:
+        return 0
+
+    ran = 0
+    while True:
+        try:
+            command = sources.claim_command(config)
+        except Exception as exc:              # noqa: BLE001 - unattended loop
+            logger.warning("could not claim a command: %s", exc)
+            return ran
+        if not command:
+            return ran
+        request_id, body = command
+
+        try:
+            result = {"status": "done", "result": await _execute(panel, body)}
+        except Exception as exc:              # noqa: BLE001 - must always report
+            # An unreported failure leaves the command in the server's
+            # inflight directory until a sweep expires it.
+            result = {"status": "error", "message": str(exc)}
+        try:
+            sources.report_result(config, request_id, result)
+        except Exception as exc:              # noqa: BLE001
+            logger.warning("could not report a result: %s", exc)
+
+        ran += 1
+        if board is not None:
+            # The command painted over the board; forget what we sent so the
+            # next tick re-renders rather than seeing "no change".
+            board.last_sent = None
+
+
 async def run(config: Config) -> int:
     if not config.mac:
         raise SystemExit("DOTDISPLAY_MAC is required")
@@ -76,6 +132,7 @@ async def run(config: Config) -> int:
             async with PanelClient(config.mac) as panel:
                 logger.info("panel connected")
                 while True:
+                    await serve_commands(config, panel, board)
                     await tick(config, board, panel)
                     await asyncio.sleep(config.poll_s)
         except Exception as exc:              # noqa: BLE001 - unattended loop
