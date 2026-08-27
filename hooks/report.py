@@ -22,6 +22,17 @@ FALLBACK = "session"
 STATES = ("running", "question", "issue", "done")
 
 
+def _pointer_path(cwd: str) -> pathlib.Path:
+    """Where the current session name for a directory is recorded.
+
+    The assistant cannot know its own session name -- it is derived here from
+    the hook payload, which the assistant never sees. This pointer is how
+    `dotdisplay status --this` finds it.
+    """
+    slug = UNSAFE.sub("", str(cwd).replace("/", "_")) or "root"
+    return _state_dir().parent / "current" / f"{slug}.name"
+
+
 def _state_dir() -> pathlib.Path:
     override = os.environ.get("DOTDISPLAY_STATE_DIR")
     if override:
@@ -64,11 +75,15 @@ def main(argv=None) -> int:
         name = _derive(payload)
         directory = _state_dir()
         path = directory / f"{name}.json"
+        pointer = _pointer_path(payload.get("cwd") or os.getcwd())
         if argv[0] == "--clear":
             path.unlink(missing_ok=True)
+            pointer.unlink(missing_ok=True)
         elif argv[0] in STATES:
             directory.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"name": name, "status": argv[0]}))
+            pointer.parent.mkdir(parents=True, exist_ok=True)
+            pointer.write_text(name)
     except Exception as exc:   # noqa: BLE001 - must never break a session
         print(f"dotdisplay hook: {exc}", file=sys.stderr)
 

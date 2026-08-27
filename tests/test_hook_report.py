@@ -67,3 +67,23 @@ def test_an_unwritable_state_directory_is_survived(tmp_path):
         assert proc.returncode == 0
     finally:
         blocked.chmod(0o700)
+
+
+def test_a_pointer_records_the_name_for_this_directory(tmp_path):
+    """The assistant never sees the hook payload, so it cannot derive its own
+    session name. The pointer is how `dotdisplay status --this` finds it."""
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"],
+         {"DOTDISPLAY_STATE_DIR": str(tmp_path / "sessions"),
+          "HOME": str(tmp_path)})
+    pointers = list((tmp_path / "current").glob("*.name"))
+    assert len(pointers) == 1
+    assert pointers[0].read_text().startswith("hwmon-")
+
+
+def test_clear_removes_the_pointer_too(tmp_path):
+    payload = {"cwd": "/home/x/hwmon", "session_id": "aa11"}
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path / "sessions"),
+           "HOME": str(tmp_path)}
+    _run(payload, ["running"], dict(env))
+    _run(payload, ["--clear"], dict(env))
+    assert list((tmp_path / "current").glob("*.name")) == []

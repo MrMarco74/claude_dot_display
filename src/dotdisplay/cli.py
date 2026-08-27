@@ -29,7 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("daemon", help="run the board")
 
     status = sub.add_parser("status", help="report this session's state")
-    status.add_argument("--name", required=True)
+    name_or_this = status.add_mutually_exclusive_group(required=True)
+    name_or_this.add_argument("--name")
+    name_or_this.add_argument("--this", action="store_true",
+                              help="use the name the hooks recorded for this "
+                                   "directory")
     status.add_argument("--state", choices=STATES)
     status.add_argument("--left", type=int, help="stages remaining")
     status.add_argument("--clear", action="store_true",
@@ -41,6 +45,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_this(config) -> str | None:
+    """Read the session name the hooks recorded for the current directory.
+
+    The assistant cannot derive its own name: it comes from the hook payload,
+    which the assistant never sees. The hooks leave it here instead.
+
+    Known limit: two sessions in the SAME directory share one pointer, so the
+    most recently prompted one wins. In practice the assistant reports right
+    after being prompted, which is that same session.
+    """
+    import os
+    import re
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "", os.getcwd().replace("/", "_")) or "root"
+    try:
+        return (config.state_dir.parent / "current" / f"{slug}.name").read_text().strip()
+    except OSError:
+        return None
+
+
 def _cmd_status(args) -> int:
     """Write one session file.
 
@@ -49,13 +72,22 @@ def _cmd_status(args) -> int:
     """
     from dotdisplay.config import Config
 
+    config = Config.from_env()
+    if getattr(args, "this", False):
+        resolved = _resolve_this(config)
+        if not resolved:
+            print("no session recorded for this directory; is the plugin "
+                  "installed and has a prompt been sent?", file=sys.stderr)
+            return 1
+        args.name = resolved
+
     if not SAFE_NAME.match(args.name):
         # The name becomes a filename and is rendered to an image; it must
         # not carry path separators or control bytes.
         print(f"invalid session name: {args.name!r}", file=sys.stderr)
         return 1
 
-    directory = Config.from_env().state_dir
+    directory = config.state_dir
     path = directory / f"{args.name}.json"
 
     if args.clear:
