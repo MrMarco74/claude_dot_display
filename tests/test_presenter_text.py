@@ -62,13 +62,15 @@ def test_statusline_is_one_short_line():
     assert len(line) <= 40
 
 
-def test_statusline_counts_by_state():
+def test_statusline_counts_states_that_do_not_need_you():
+    """Running sessions are a number: knowing which one is running is not
+    actionable, so the name would only cost width."""
     line = t.statusline([
         {"name": "a", "status": "issue"},
-        {"name": "b", "status": "issue"},
+        {"name": "b", "status": "running"},
         {"name": "c", "status": "running"},
     ])
-    assert "2" in line
+    assert "*2" in line
 
 
 def test_statusline_is_empty_without_sessions():
@@ -100,3 +102,39 @@ def test_usage_values_are_never_cut_in_half():
         assert piece.strip(), line
         assert not piece.rstrip().endswith(("k", "M", "G")) or len(piece.split()) == 2
     assert not line.rstrip().endswith(("7", "75"))  # no dangling digits
+
+
+def test_statusline_names_the_sessions_that_need_you():
+    """A count tells you something is blocked; a name tells you which."""
+    line = t.statusline([
+        {"name": "hwmon-d7", "status": "issue"},
+        {"name": "storygen", "status": "question"},
+        {"name": "kolonial", "status": "running"},
+        {"name": "marcohp", "status": "running"},
+    ])
+    assert "hwmon-d7" in line
+    assert "storygen" in line
+    assert "*2" in line              # running sessions stay a count
+    assert "kolonial" not in line
+
+
+def test_statusline_falls_back_to_counts_when_names_get_too_long():
+    """A prompt segment that wraps is worse than one that is vague."""
+    many = [{"name": f"long-session-name-{i}", "status": "issue"}
+            for i in range(6)]
+    line = t.statusline(many)
+    assert len(line) <= t.STATUSLINE_MAX
+    assert line == "!6"
+
+
+def test_counts_only_is_available_explicitly():
+    line = t.statusline([{"name": "hwmon-d7", "status": "issue"}], names=False)
+    assert line == "!1"
+
+
+def test_named_sessions_are_alphabetical():
+    line = t.statusline([
+        {"name": "zulu", "status": "issue"},
+        {"name": "alpha", "status": "issue"},
+    ])
+    assert line.index("alpha") < line.index("zulu")

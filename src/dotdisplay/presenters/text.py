@@ -75,16 +75,48 @@ def board(sessions, header, stats) -> str:
     return "\n".join(lines)
 
 
-def statusline(sessions) -> str:
+# States that mean a human is needed. These get names; the rest get counts,
+# because knowing *which* session is blocked is actionable and knowing which
+# one is merely running is not.
+ATTENTION = ("issue", "question")
+STATUSLINE_MAX = 60
+
+
+def statusline(sessions, names: bool = True) -> str:
     """One short segment for a prompt.
 
     Empty when there is nothing to say: a permanent decoration in a prompt is
     just noise.
+
+    Names are shown for the states that need a human and counts for the rest.
+    If that would grow past STATUSLINE_MAX, everything falls back to counts --
+    a prompt segment that wraps is worse than one that is vague.
     """
     if not sessions:
         return ""
+
     counts = {}
     for session in sessions:
         counts[session["status"]] = counts.get(session["status"], 0) + 1
-    return " ".join(f"{MARKS[state]}{counts[state]}"
-                    for state in STATE_ORDER if counts.get(state))
+
+    def counts_only() -> str:
+        return " ".join(f"{MARKS[state]}{counts[state]}"
+                        for state in STATE_ORDER if counts.get(state))
+
+    if not names:
+        return counts_only()
+
+    pieces = []
+    for state in STATE_ORDER:
+        if not counts.get(state):
+            continue
+        if state in ATTENTION:
+            pieces.extend(
+                f"{MARKS[state]}{s['name']}"
+                for s in sorted(sessions, key=lambda s: s["name"])
+                if s["status"] == state)
+        else:
+            pieces.append(f"{MARKS[state]}{counts[state]}")
+
+    line = " ".join(pieces)
+    return line if len(line) <= STATUSLINE_MAX else counts_only()

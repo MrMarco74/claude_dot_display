@@ -71,8 +71,10 @@ def build_parser() -> argparse.ArgumentParser:
     board.add_argument("--watch", action="store_true", help="redraw until Ctrl-C")
     board.add_argument("--no-colour", action="store_true")
 
-    sub.add_parser("statusline",
-                   help="one short line for a prompt or status bar")
+    status_line = sub.add_parser(
+        "statusline", help="one short line for a prompt or status bar")
+    status_line.add_argument("--counts-only", action="store_true",
+                             help="numbers instead of names")
 
     check = sub.add_parser(
         "check", help="show a code on the panel to confirm the address")
@@ -358,7 +360,7 @@ def _cmd_board(args) -> int:
         return 0
 
 
-def _cmd_statusline() -> int:
+def _cmd_statusline(args) -> int:
     """Print one segment for a prompt.
 
     Reads files and nothing else: this runs on every prompt render, so it
@@ -368,7 +370,8 @@ def _cmd_statusline() -> int:
     from dotdisplay.config import Config
     from dotdisplay.presenters import text as presenter
 
-    line = presenter.statusline(sources.read_local_sessions(Config.from_env()))
+    line = presenter.statusline(sources.read_local_sessions(Config.from_env()),
+                                names=not args.counts_only)
     if line:
         print(line)
     return 0
@@ -391,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "board":
         return _cmd_board(args)
     if args.command == "statusline":
-        return _cmd_statusline()
+        return _cmd_statusline(args)
     if args.command in _PANEL_COMMANDS:
         return _run_command(_PANEL_COMMANDS[args.command](args), args.json)
 

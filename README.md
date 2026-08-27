@@ -56,9 +56,23 @@ To put the summary in Claude Code's status line, add to your `settings.json`:
 }
 ```
 
+It shows **names for the sessions that need you** and counts for the rest:
+
+```
+!hwmon-d7 ?storygen *3
+```
+
+`!` issue · `?` waiting on you · `*` running · `+` done. Knowing *which*
+session is blocked is actionable; knowing which one is merely running is not,
+so those stay a number. If names would push the line past 60 characters it
+falls back to counts entirely — a prompt segment that wraps is worse than one
+that is vague. `--counts-only` forces that shorter form.
+
 It prints nothing when no session is running, so it costs you no space when
 there is nothing to say. **The installer will not edit `settings.json` for
-you** — you may already have a status line, and replacing it is not ours to do.
+you** — you may already have a status line, and replacing it is not ours to
+do. If you already run one for its side effects, wrap it rather than replace
+it: mine writes the rate-limit file this board's header reads.
 
 The LED matrix is the fun part, not the price of entry.
 
