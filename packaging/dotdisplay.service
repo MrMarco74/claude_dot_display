@@ -1,0 +1,14 @@
+[Unit]
+Description=claude-dot-display board
+After=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/dotdisplay/venv/bin/dotdisplay daemon
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=%h/.config/dotdisplay/env
+
+[Install]
+WantedBy=default.target

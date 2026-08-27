@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 import dotdisplay
@@ -24,3 +26,39 @@ def test_version_string_is_a_release_number():
     parts = dotdisplay.__version__.split(".")
     assert len(parts) == 3
     assert all(p.isdigit() for p in parts)
+
+
+def test_status_writes_a_session_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    assert cli.main(["status", "--name", "hwmon-d7",
+                     "--state", "question", "--left", "3"]) == 0
+    body = json.loads((tmp_path / "hwmon-d7.json").read_text())
+    assert body == {"name": "hwmon-d7", "status": "question", "stages_left": 3}
+
+
+def test_status_clear_removes_the_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    cli.main(["status", "--name", "x", "--state", "running"])
+    assert cli.main(["status", "--name", "x", "--clear"]) == 0
+    assert not (tmp_path / "x.json").exists()
+
+
+def test_clearing_an_unknown_session_is_not_an_error(tmp_path, monkeypatch):
+    """Hooks fire for sessions that were never registered; that is normal."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    assert cli.main(["status", "--name", "ghost", "--clear"]) == 0
+
+
+def test_status_rejects_a_name_that_is_not_a_safe_filename(tmp_path, monkeypatch):
+    """The name becomes a filename and is rendered to an image; it must not
+    carry path separators or control bytes."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    for bad in ("../escape", "has space", "", "a" * 40):
+        assert cli.main(["status", "--name", bad, "--state", "running"]) == 1
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_status_rejects_an_unknown_state(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    with pytest.raises(SystemExit):
+        cli.main(["status", "--name", "x", "--state", "busy"])
