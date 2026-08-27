@@ -7,6 +7,8 @@ tests/test_ble_protocol.py and PROTOCOL.md.
 Every frame begins with its own total length as a little-endian u16.
 """
 
+import struct
+
 WIDTH = HEIGHT = 64
 LENGTH_FIELD = 2
 
@@ -46,3 +48,53 @@ def draw_pixel(x: int, y: int, rgb: tuple[int, int, int]) -> bytes:
     if not 0 <= x < WIDTH or not 0 <= y < HEIGHT:
         raise ValueError(f"pixel ({x},{y}) is outside the {WIDTH}x{HEIGHT} panel")
     return _frame(bytes([0x05, 0x01, 0x00]) + _check_colour(rgb) + bytes([x, y]))
+
+
+CHUNK_DATA = 4096          # payload bytes per chunk, from the captures
+CHUNK_HEADER = 9
+KIND_IMAGE = 0x0000
+KIND_ANIMATION = 0x0001    # envelope known; payload NOT decoded, do not use
+FLAG_FIRST = 0x00
+FLAG_CONTINUE = 0x02
+
+IMAGE_BYTES = WIDTH * HEIGHT * 3
+
+
+def image_to_rgb(img) -> bytes:
+    """Flatten a Pillow image to the panel's raw RGB888, row-major from the
+    top left. Anything not already 64x64 RGB is converted."""
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    if img.size != (WIDTH, HEIGHT):
+        from PIL import Image
+        img = img.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+    return img.tobytes()
+
+
+def encode_image(rgb: bytes, kind: int = KIND_IMAGE) -> list[bytes]:
+    """Split a raw RGB888 payload into the device's bulk-transfer chunks.
+
+    Returns whole chunks. Splitting these into ATT-sized writes is the
+    transport's job, because only it knows the negotiated MTU.
+
+    Unlike the vendor application, this does not resample: a caller asking
+    for an exact pixel gets that exact pixel. The captures show the app
+    smearing a single-pixel source across ~33 pixels, which would destroy
+    8px text on a status board.
+    """
+    if len(rgb) != IMAGE_BYTES:
+        raise ValueError(
+            f"expected {IMAGE_BYTES} bytes of RGB888, got {len(rgb)}")
+
+    chunks = []
+    for offset in range(0, len(rgb), CHUNK_DATA):
+        data = rgb[offset: offset + CHUNK_DATA]
+        header = struct.pack(
+            "<HHBI",
+            CHUNK_HEADER + len(data),                       # this chunk's length
+            kind,
+            FLAG_FIRST if offset == 0 else FLAG_CONTINUE,
+            len(rgb),                                       # total payload
+        )
+        chunks.append(header + data)
+    return chunks
