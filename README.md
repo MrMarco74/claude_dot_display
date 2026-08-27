@@ -35,10 +35,13 @@ Alpha, and honest about it. The repository is being built in phases:
 
 | Phase | What | State |
 | --- | --- | --- |
-| P0 | Repo foundation | in progress |
+| P0 | Repo foundation | **done** |
 | P1 | BLE driver | protocol documented, driver not written |
 | P2 | Board, renderer, daemon | not started |
 | P3 | Claude Code plugin | not started |
+
+Install the plugin today and it does nothing yet — it carries no hooks or
+skills until P3. It exists so the install path is real and testable.
 
 [`PROTOCOL.md`](PROTOCOL.md) is already worth reading if you own one of these
 panels. Everything in it is marked with whether it has been replayed against
