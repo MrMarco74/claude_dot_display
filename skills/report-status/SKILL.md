@@ -26,10 +26,8 @@ never see — so always use `--this` rather than guessing a name.
 plan with stages. Omit it when there is no meaningful count. Never invent one.
 
 A count you report **persists** across later writes, including the `running`
-that every prompt fires, so you only have to report it when it changes. That
-also means it outlives the plan unless you retract it: pass `--left 0` when
-the stages are finished or abandoned, or the panel keeps advertising a number
-that is no longer true.
+that every prompt fires, so you only have to report it when it changes. See
+*Counting stages* below for what may be counted, and how to retract a count.
 
 ## When to report
 
@@ -38,11 +36,35 @@ that is no longer true.
 - **`issue`** — when you hit a blocker you cannot resolve alone.
 - **`done`** — when you finish. The next prompt sets the state back to
   `running` automatically, so you do not need to undo it.
+- **the stage count** — whenever it changes, while you keep working:
+
+      dotdisplay status --this --state running --left 4
+
+  A descending number is what tells the user how much of a long task is
+  left, which is the one thing a row of names cannot say. Report it as each
+  stage completes.
+
+## Counting stages
+
+Only count stages you can enumerate before you start: the phases of a written
+plan, the items on a todo list you have already built, the files in a batch
+you have already listed. If you cannot say what the last stage is, you have no
+count -- say nothing rather than estimate.
+
+One count per session, for the work as a whole. A count that goes 5, 4, 3 and
+then back up to 9 because you started counting something else is worse than no
+count at all.
+
+Retract with `--left 0` the moment the stages are finished or abandoned. The
+count survives every later write, so an unretracted one outlives its plan and
+keeps advertising a number that is no longer true.
 
 ## When not to report
 
-- Do not report progress in the middle of work. `running` is already correct,
-  and the board is meant to be glanceable, not a progress bar.
+- Do not report a stage for every step, tool call or file. Stages are the few
+  boundaries a user would recognise, not your internal progress.
+- Do not invent a count to have one. An empty column is honest; a wrong number
+  is read from across the room and acted on.
 - Do not report `done` for a step. Only for the work as a whole.
 - Do not report a state you are unsure about. A board that is wrong is worse
   than a board that is stale: the user acts on it from across the room, where

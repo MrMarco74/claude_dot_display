@@ -5,6 +5,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-28
+
+### Changed
+
+- `report-status` now reports the stage count *while working*, not only when
+  asking, blocking or finishing. The count was the one thing a row of names
+  cannot say -- how much of a long task is left -- and the skill previously
+  forbade reporting it mid-work on the grounds that the board is glanceable
+  rather than a progress bar. A number that changes a handful of times per
+  session is glanceable; the rule was aimed at per-step chatter, which is
+  still ruled out. A new *Counting stages* section says what may be counted
+  (only stages enumerable before starting), that a session gets one count for
+  the work as a whole, and that a finished or abandoned plan must be retracted
+  with `--left 0`.
+
 ## [0.3.0] - 2026-08-28
 
 ### Fixed
@@ -80,6 +95,7 @@ Initial release.
 - A command queue so one-shot commands still work while the daemon owns the
   radio, a systemd user unit, and an installer.
 
+[0.4.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MrMarco74/claude_dot_display/releases/tag/v0.1.0
