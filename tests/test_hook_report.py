@@ -137,3 +137,34 @@ def test_a_beat_creates_a_missing_session_file(tmp_path):
     written = list(tmp_path.glob("*.json"))
     assert len(written) == 1
     assert json.loads(written[0].read_text())["status"] == "running"
+
+
+def test_a_prompt_does_not_wipe_a_reported_stage_count(tmp_path):
+    """UserPromptSubmit fires 'running' on every prompt. Overwriting is
+    right for the status -- a new prompt does mean running again -- but the
+    prompt says nothing about how many stages are left, so erasing the count
+    threw away the only number the board has."""
+    payload = {"cwd": "/home/x/hwmon", "session_id": "aa11"}
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run(payload, ["question"], dict(env))
+    path = next(iter(tmp_path.glob("*.json")))
+    path.write_text(json.dumps({"name": path.stem, "status": "question",
+                                "stages_left": 3}))
+
+    _run(payload, ["running"], dict(env))
+    body = json.loads(path.read_text())
+    assert body["status"] == "running"       # the prompt does move the state
+    assert body["stages_left"] == 3          # but not the count
+
+
+def test_an_unreadable_session_file_still_reports(tmp_path):
+    """Merging means reading first. A file that cannot be parsed must not
+    stop the session from reaching the board at all."""
+    payload = {"cwd": "/home/x/hwmon", "session_id": "aa11"}
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run(payload, ["running"], dict(env))
+    path = next(iter(tmp_path.glob("*.json")))
+    path.write_text("{not json")
+
+    _run(payload, ["running"], dict(env))
+    assert json.loads(path.read_text())["status"] == "running"

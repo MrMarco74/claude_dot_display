@@ -141,8 +141,15 @@ def _cmd_status(args) -> int:
         return 1
 
     body = {"name": args.name, "status": args.state}
-    if args.left is not None:
+    if args.left is None:
+        # Saying nothing about the stages is not the same as saying there
+        # are none: keep whatever the last writer reported.
+        body.update(_carried_stages(path))
+    elif args.left > 0:
         body["stages_left"] = args.left
+    # --left 0 falls through, dropping the key: with the count now surviving
+    # every other write, this is the only way to retract one, and "no stages
+    # left" and "no count" read identically on the board.
     try:
         directory.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(body))
@@ -150,6 +157,16 @@ def _cmd_status(args) -> int:
         print(f"dotdisplay: {exc}", file=sys.stderr)
         return 1
     return 0
+
+
+def _carried_stages(path) -> dict:
+    """The stage count already on file, if any. Unreadable means none."""
+    try:
+        body = json.loads(path.read_text())
+        left = body.get("stages_left") if isinstance(body, dict) else None
+        return {} if left is None else {"stages_left": left}
+    except (OSError, ValueError):
+        return {}
 
 
 def _cmd_daemon() -> int:

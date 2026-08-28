@@ -287,3 +287,26 @@ def test_statusline_never_touches_the_radio(tmp_path, monkeypatch, mocker):
     panel = mocker.patch("dotdisplay.ble.PanelClient")
     cli.main(["statusline"])
     panel.assert_not_called()
+
+
+def test_status_without_left_keeps_the_stage_count(tmp_path, monkeypatch):
+    """Reporting a new state says nothing about how many stages remain, so
+    it must not silently discard a count that is still true."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    cli.main(["status", "--name", "hwmon-d7", "--state", "running",
+              "--left", "4"])
+    cli.main(["status", "--name", "hwmon-d7", "--state", "question"])
+    body = json.loads((tmp_path / "hwmon-d7.json").read_text())
+    assert body == {"name": "hwmon-d7", "status": "question", "stages_left": 4}
+
+
+def test_left_zero_retracts_the_stage_count(tmp_path, monkeypatch):
+    """Once a count is preserved across writes there has to be a way to stop
+    advertising it, or a finished plan's number sits on the panel for ever.
+    Nothing left to do and no count are the same thing to a reader."""
+    monkeypatch.setenv("DOTDISPLAY_STATE_DIR", str(tmp_path))
+    cli.main(["status", "--name", "hwmon-d7", "--state", "running",
+              "--left", "4"])
+    cli.main(["status", "--name", "hwmon-d7", "--state", "done", "--left", "0"])
+    body = json.loads((tmp_path / "hwmon-d7.json").read_text())
+    assert body == {"name": "hwmon-d7", "status": "done"}

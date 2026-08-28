@@ -59,6 +59,23 @@ def _derive(payload: dict) -> str:
     return f"{base[: MAX_DISPLAY - SUFFIX_CHARS - 1]}-{suffix}"
 
 
+def _carried(path: pathlib.Path) -> dict:
+    """What survives a state change.
+
+    A writer that says nothing about stages_left must not erase it:
+    UserPromptSubmit fires "running" on every prompt, and a prompt is a
+    statement about the state, not about how many stages are left. Returns
+    an empty dict for anything unreadable -- a damaged file is a reason to
+    lose the count, never a reason to leave the session off the board.
+    """
+    try:
+        body = json.loads(path.read_text())
+        left = body.get("stages_left") if isinstance(body, dict) else None
+        return {} if left is None else {"stages_left": left}
+    except (OSError, ValueError):
+        return {}
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
@@ -98,7 +115,8 @@ def main(argv=None) -> int:
             pointer.unlink(missing_ok=True)
         elif argv[0] in STATES:
             directory.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({"name": name, "status": argv[0]}))
+            path.write_text(json.dumps({"name": name, "status": argv[0],
+                                        **_carried(path)}))
             pointer.parent.mkdir(parents=True, exist_ok=True)
             pointer.write_text(name)
     except Exception as exc:   # noqa: BLE001 - must never break a session

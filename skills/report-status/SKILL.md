@@ -25,6 +25,12 @@ never see — so always use `--this` rather than guessing a name.
 `--left` is the number of stages still to go when you are working through a
 plan with stages. Omit it when there is no meaningful count. Never invent one.
 
+A count you report **persists** across later writes, including the `running`
+that every prompt fires, so you only have to report it when it changes. That
+also means it outlives the plan unless you retract it: pass `--left 0` when
+the stages are finished or abandoned, or the panel keeps advertising a number
+that is no longer true.
+
 ## When to report
 
 - **`question`** — immediately before you stop and ask the user something.
