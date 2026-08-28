@@ -86,6 +86,13 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A project-scoped API token, stored as a repository secret and
+          # never in the tree. Trusted publishing (no stored secret at all,
+          # PyPI minting a short-lived credential from the id-token below)
+          # is the better end state: delete this line once it is configured
+          # at pypi.org/manage/project/claude-dot-display/settings/publishing.
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   github-release:
     # Runs only after PyPI has accepted the upload: a release page pointing
