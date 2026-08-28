@@ -8,6 +8,11 @@ ExecStart=%h/.local/share/dotdisplay/venv/bin/dotdisplay daemon
 Restart=always
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
+# A user service does not inherit your login shell's PATH: systemd
+# gives it a bare /usr/bin:/bin. ccusage is a Node CLI installed
+# per-user, so without ~/.local/bin the idle screen silently loses
+# its token rows and the log fills with 'ccusage unavailable'.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=%h/.config/dotdisplay/env
 
 [Install]
