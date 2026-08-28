@@ -20,12 +20,24 @@ logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY_S = 10.0
 
+# Consecutive failed writes tolerated before the connection is considered
+# dead. A single failure is normal -- the panel briefly out of range, a busy
+# radio -- and healed by the next tick. A run of them is not: BlueZ can drop
+# the resolved services under a live connection, after which every write
+# raises and no number of retries against that client will ever succeed.
+MAX_SEND_FAILURES = 3
+
+
+class PanelUnreachable(RuntimeError):
+    """The panel stopped accepting writes. Only a reconnect can fix it."""
+
 
 @dataclass
 class Board:
     """What the loop remembers between ticks."""
     last_sent: bytes | None = None
     ccusage: CcusageCache | None = None
+    send_failures: int = 0
 
     def __post_init__(self):
         if self.ccusage is None:
@@ -84,8 +96,12 @@ async def serve_local_queue(config: Config, panel) -> int:
 
 
 async def tick(config: Config, board: Board, panel) -> bool:
-    """One pass. Returns True if the panel was updated. Never raises: this
-    runs unattended."""
+    """One pass. Returns True if the panel was updated.
+
+    Raises PanelUnreachable once the writes have failed MAX_SEND_FAILURES
+    times in a row, so run() can rebuild the connection. Nothing else
+    escapes: this runs unattended.
+    """
     # Beat here rather than in run(): tick only runs while a panel connection
     # is held, which is exactly the condition the heartbeat advertises.
     _queue.beat(config)
@@ -105,9 +121,18 @@ async def tick(config: Config, board: Board, panel) -> bool:
     except Exception as exc:                  # noqa: BLE001 - unattended loop
         # Deliberately do NOT record this as sent: the panel does not show
         # what we rendered, so the next tick must try again.
+        board.send_failures += 1
         logger.warning("could not update the panel: %s", exc)
+        if board.send_failures >= MAX_SEND_FAILURES:
+            # Retrying a dead link forever leaves the panel showing a frame
+            # from hours ago while the log fills with the same warning. Hand
+            # the connection back instead; run() is the only thing that can
+            # replace it.
+            raise PanelUnreachable(
+                f"{board.send_failures} writes in a row failed: {exc}") from exc
         return False
 
+    board.send_failures = 0
     board.last_sent = pixels
     # Logged at INFO on purpose: this is the only externally visible sign that
     # the board changed, and it is what makes "a quiet board sends nothing"
@@ -208,6 +233,7 @@ async def run(config: Config) -> int:
             # a cached "already sent" value would be a lie and could leave the
             # board permanently stale.
             board.last_sent = None
+            board.send_failures = 0
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), RECONNECT_DELAY_S)
 

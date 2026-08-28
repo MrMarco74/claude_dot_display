@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import dataclasses
 
 import pytest
@@ -269,3 +270,86 @@ async def test_a_failing_splash_is_swallowed(cfg, mocker):
         await d._show_splash(FakePanel(), board, stop)
     except OSError:
         raise AssertionError("splash failure escaped") from None
+
+
+async def test_repeated_send_failures_force_a_reconnect(cfg, mocker):
+    """A dead GATT link never heals on its own.
+
+    Observed on hardware: BlueZ dropped the resolved services under a live
+    connection and every write raised "Service Discovery has not been
+    performed yet" for three hours. The panel kept a frame that was hours
+    old while the loop logged a warning every five seconds. Tolerating a
+    write failure forever is the same as not reconnecting at all, so after
+    MAX_SEND_FAILURES consecutive failures tick must give the connection
+    back to run(), which is the only thing that can rebuild it.
+    """
+    mocker.patch("dotdisplay.daemon.sources.read_sessions",
+                 return_value=[{"name": "a", "status": "running"}])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+
+    class Dead(FakePanel):
+        async def send_image(self, img):
+            raise OSError("Service Discovery has not been performed yet")
+
+    panel, board = Dead(), d.Board()
+    for _ in range(d.MAX_SEND_FAILURES - 1):
+        assert await d.tick(cfg, board, panel) is False
+    with pytest.raises(d.PanelUnreachable):
+        await d.tick(cfg, board, panel)
+
+
+async def test_a_recovered_send_clears_the_failure_count(cfg, mocker):
+    """Only *consecutive* failures mean the link is gone. An occasional
+    failed write between good ones must never accumulate into a reconnect."""
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    sessions = mocker.patch("dotdisplay.daemon.sources.read_sessions")
+
+    class Flaky(FakePanel):
+        def __init__(self):
+            super().__init__()
+            self.fail = False
+
+        async def send_image(self, img):
+            if self.fail:
+                raise OSError("transient")
+            await super().send_image(img)
+
+    panel, board = Flaky(), d.Board()
+    for index in range(d.MAX_SEND_FAILURES * 3):
+        # A distinct board each tick, or the cache would skip the send.
+        sessions.return_value = [{"name": f"s{index}", "status": "running"}]
+        panel.fail = index % 2 == 0
+        await d.tick(cfg, board, panel)
+    assert len(panel.images) == d.MAX_SEND_FAILURES * 3 // 2
+
+
+async def test_a_dead_panel_is_reconnected_by_the_loop(cfg, mocker):
+    """The whole point of PanelUnreachable: run() must build a *new*
+    connection, not keep writing to the one that stopped answering."""
+    mocker.patch("dotdisplay.daemon.sources.read_sessions",
+                 return_value=[{"name": "a", "status": "running"}])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    mocker.patch("dotdisplay.daemon.RECONNECT_DELAY_S", 0.01)
+
+    connections = []
+
+    class Dead(FakePanel):
+        async def send_image(self, img):
+            raise OSError("Service Discovery has not been performed yet")
+
+    class Ctx:
+        async def __aenter__(self):
+            connections.append(Dead())
+            return connections[-1]
+
+        async def __aexit__(self, *exc):
+            return False
+
+    mocker.patch("dotdisplay.daemon.PanelClient", side_effect=lambda mac: Ctx())
+
+    task = asyncio.create_task(d.run(dataclasses.replace(cfg, poll_s=0.001)))
+    await asyncio.sleep(0.2)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    assert len(connections) > 1
