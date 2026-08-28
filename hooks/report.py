@@ -76,7 +76,24 @@ def main(argv=None) -> int:
         directory = _state_dir()
         path = directory / f"{name}.json"
         pointer = _pointer_path(payload.get("cwd") or os.getcwd())
-        if argv[0] == "--clear":
+        if argv[0] == "--beat":
+            # A heartbeat says "this session still exists", NOT what state it
+            # is in -- so it must never write a status. The other modes fire
+            # only when you type or the session ends, which leaves a session
+            # working on one long task looking dead after stale_after_s. This
+            # is the only event that fires while Claude is actually working.
+            directory.mkdir(parents=True, exist_ok=True)
+            if path.exists():
+                os.utime(path, None)      # freshness only; status untouched
+            else:
+                # Self-healing: a session that predates the plugin, or whose
+                # SessionStart hook did not run, joins the board on its first
+                # tool call rather than staying invisible for its whole life.
+                path.write_text(json.dumps({"name": name,
+                                            "status": "running"}))
+            pointer.parent.mkdir(parents=True, exist_ok=True)
+            pointer.write_text(name)
+        elif argv[0] == "--clear":
             path.unlink(missing_ok=True)
             pointer.unlink(missing_ok=True)
         elif argv[0] in STATES:

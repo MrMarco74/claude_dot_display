@@ -87,3 +87,53 @@ def test_clear_removes_the_pointer_too(tmp_path):
     _run(payload, ["running"], dict(env))
     _run(payload, ["--clear"], dict(env))
     assert list((tmp_path / "current").glob("*.name")) == []
+
+
+def test_a_beat_leaves_an_existing_status_alone(tmp_path):
+    """The whole point of a separate mode. A session showing amber
+    'question' or red 'issue' is still running tools while it waits or
+    retries; a heartbeat that asserted 'running' would wipe the very signal
+    the board exists to show."""
+    import os
+    import time
+
+    payload = {"cwd": "/home/x/hwmon", "session_id": "aa11"}
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run(payload, ["issue"], dict(env))
+    path = next(iter(tmp_path.glob("*.json")))
+    stale = time.time() - 3600
+    os.utime(path, (stale, stale))
+
+    _run(payload, ["--beat"], dict(env))
+    # Both halves, or "did nothing at all" would pass the status assertion.
+    assert path.stat().st_mtime > stale + 60
+    assert json.loads(path.read_text())["status"] == "issue"
+
+
+def test_a_beat_refreshes_a_session_that_had_gone_stale(tmp_path):
+    """A session working on one long task never submits a prompt, so its
+    file ages past stale_after_s and drops off the board while Claude is
+    demonstrably alive. The beat is what stops that."""
+    import os
+    import time
+
+    payload = {"cwd": "/home/x/hwmon", "session_id": "aa11"}
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run(payload, ["running"], dict(env))
+    path = next(iter(tmp_path.glob("*.json")))
+    stale = time.time() - 3600
+    os.utime(path, (stale, stale))
+
+    _run(payload, ["--beat"], dict(env))
+    assert path.stat().st_mtime > stale + 60
+
+
+def test_a_beat_creates_a_missing_session_file(tmp_path):
+    """Self-healing: a session started before the plugin was installed, or
+    one whose SessionStart hook did not run, must still reach the board as
+    soon as it does any work."""
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["--beat"],
+         {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)})
+    written = list(tmp_path.glob("*.json"))
+    assert len(written) == 1
+    assert json.loads(written[0].read_text())["status"] == "running"
