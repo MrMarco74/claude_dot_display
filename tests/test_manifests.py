@@ -26,3 +26,13 @@ def test_plugin_version_matches_the_package_version():
     """Two version numbers that can disagree eventually will."""
     pkg = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
     assert json.loads(PLUGIN.read_text())["version"] == pkg
+
+
+def test_package_dunder_version_matches_the_package_version():
+    """`dotdisplay --version` reads __version__, not pyproject. A release
+    that bumps only one of them ships a binary that misreports itself, and
+    the misreport is what you check first when a fix seems not to have
+    landed."""
+    import dotdisplay
+    pkg = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    assert dotdisplay.__version__ == pkg

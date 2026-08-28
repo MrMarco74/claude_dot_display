@@ -5,6 +5,27 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The installer now links `dotdisplay` into `~/.local/bin`. It never did:
+  the systemd unit runs the venv binary by absolute path, so the daemon and
+  the panel worked perfectly while a bare `dotdisplay` was `command not
+  found` in every shell. That silently disabled all status reporting --
+  `report-status` is told to swallow failures, so every session's `question`,
+  `issue`, `done` and stage count vanished with exit 127 and the board sat on
+  `running` forever. `scripts/install.sh` also warns when `~/.local/bin` is
+  not on PATH, and `/dotdisplay-setup` now verifies `command -v dotdisplay`
+  rather than trusting a clean service log.
+- `report-status` distinguishes `command not found` from a board that is
+  merely unreachable, and reports the first once. A failure that no future
+  attempt can recover from is not a transient one, and swallowing it is what
+  kept this hidden.
+- `dotdisplay --version` reported `0.1.0` on 0.5.0. `__version__` was left
+  behind by four releases; a test now pins it to `pyproject.toml` alongside
+  the existing plugin-manifest pin.
+
 ## [0.5.0] - 2026-08-28
 
 ### Added

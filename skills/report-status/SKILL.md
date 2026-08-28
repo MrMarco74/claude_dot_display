@@ -72,10 +72,25 @@ keeps advertising a number that is no longer true.
 
 ## If the command fails
 
-Ignore it and carry on. The board is a convenience and is never worth
-interrupting the work for. Do not retry, and do not report the failure to the
-user unless they ask.
+Never interrupt the work for it, never retry, and never let it change what
+you were doing. The board is a convenience. But two failures mean different
+things, and only one of them is safe to swallow.
 
-A failure usually means the plugin's hooks have not run in this directory yet
-(so there is no name to resolve) or the daemon is not installed. Neither is
-something to fix mid-task.
+**`dotdisplay: command not found` (exit 127)** — say so, once, in a single
+line at the end of your reply:
+
+> The `dotdisplay` command is not on PATH, so this session cannot report to
+> the board. Re-run the installer, or link it:
+> `ln -sfn ~/.local/share/dotdisplay/venv/bin/dotdisplay ~/.local/bin/`
+
+This is not a transient failure. It means **no** report from **any** session
+will ever land, so the board silently stays on `running` forever and the
+user has no way to notice: they are looking at a display that appears to be
+working. Staying quiet here is what makes it undiscoverable. Mention it once
+per session, not once per report.
+
+**Anything else** — ignore it and carry on, and do not tell the user unless
+they ask. The hooks have not run in this directory yet (so there is no name
+to resolve), or the daemon is down, or the panel is out of range. These are
+real conditions with visible symptoms elsewhere, and none is worth fixing
+mid-task.

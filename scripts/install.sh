@@ -9,6 +9,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="${HOME}/.local/share/dotdisplay"
 CONFIG_DIR="${HOME}/.config/dotdisplay"
 UNIT_DIR="${HOME}/.config/systemd/user"
+BIN_DIR="${HOME}/.local/bin"
 
 # Only one process may own the radio. Two owners produce failures that look
 # exactly like protocol bugs, so refuse rather than let that happen.
@@ -24,6 +25,20 @@ mkdir -p "${PREFIX}"
 python3 -m venv "${PREFIX}/venv"
 "${PREFIX}/venv/bin/python" -m pip install --quiet --upgrade pip
 "${PREFIX}/venv/bin/python" -m pip install --quiet "${REPO}"
+
+# The service runs the venv binary by absolute path, so the daemon never
+# needed this. Everything else does: the report-status skill, the status
+# line and the user's own shell all call a bare `dotdisplay`. Without this
+# link they get "command not found" -- and the skill is told to swallow
+# errors, so that failure is silent and the board never leaves "running".
+echo "==> link at ${BIN_DIR}/dotdisplay"
+mkdir -p "${BIN_DIR}"
+ln -sfn "${PREFIX}/venv/bin/dotdisplay" "${BIN_DIR}/dotdisplay"
+case ":${PATH}:" in
+    *":${BIN_DIR}:"*) ;;
+    *) echo "    NOTE: ${BIN_DIR} is not on your PATH; add it or the" >&2
+       echo "          board's status reporting stays silent." >&2 ;;
+esac
 
 echo "==> configuration at ${CONFIG_DIR}/env"
 mkdir -p "${CONFIG_DIR}"

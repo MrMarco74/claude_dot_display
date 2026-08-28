@@ -42,7 +42,17 @@ Set up the claude-dot-display board on this machine.
    anything lit up. `dotdisplay check` shows a code for exactly this, but the
    daemon must be stopped first since it holds the radio.
 
-6. Mention two things the user will want to know:
+6. Confirm the command itself is reachable, in a *fresh* shell:
+
+       command -v dotdisplay
+
+   The service runs the venv binary by absolute path, so the panel can light
+   up perfectly while this still prints nothing. If it does print nothing,
+   `~/.local/bin` is not on the user's PATH -- everything below, the status
+   line and the sessions' own status reporting all depend on it, and all of
+   them fail silently.
+
+7. Mention two things the user will want to know:
 
    - Sessions appear by themselves once the plugin's hooks have run; the
      first row shows up after the next prompt.
@@ -55,7 +65,7 @@ Set up the claude-dot-display board on this machine.
          dotdisplay board          # full view in the terminal
          dotdisplay statusline     # one line, e.g. !hwmon-d7 ?storygen *3
 
-7. Offer the status line, but **do not edit `settings.json` yourself**. Show
+8. Offer the status line, but **do not edit `settings.json` yourself**. Show
    the snippet and let the user decide:
 
    ```json
