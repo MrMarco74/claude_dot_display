@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 DEFAULT_POLL_S = 5.0
 DEFAULT_CCUSAGE_REFRESH_S = 300.0
 DEFAULT_STALE_AFTER_S = 900.0
+# Deliberately much slower than staleness: coming off the board is a
+# display decision, deleting the file throws away stages_left for good.
+DEFAULT_PRUNE_AFTER_S = 21600.0
 
 
 def _default_state_dir() -> pathlib.Path:
@@ -27,6 +30,7 @@ class Config:
     poll_s: float = DEFAULT_POLL_S
     ccusage_refresh_s: float = DEFAULT_CCUSAGE_REFRESH_S
     stale_after_s: float = DEFAULT_STALE_AFTER_S
+    prune_after_s: float = DEFAULT_PRUNE_AFTER_S
     state_dir: pathlib.Path = field(default_factory=_default_state_dir)
 
     @classmethod
@@ -43,5 +47,7 @@ class Config:
                 env("DOTDISPLAY_CCUSAGE_REFRESH_S", DEFAULT_CCUSAGE_REFRESH_S)),
             stale_after_s=float(
                 env("DOTDISPLAY_STALE_AFTER_S", DEFAULT_STALE_AFTER_S)),
+            prune_after_s=float(
+                env("DOTDISPLAY_PRUNE_AFTER_S", DEFAULT_PRUNE_AFTER_S)),
             state_dir=pathlib.Path(state) if state else _default_state_dir(),
         )

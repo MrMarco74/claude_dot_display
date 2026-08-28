@@ -157,3 +157,74 @@ def test_hwmon_url_alone_does_not_enable_remote_sessions(cfg, mocker):
     fetch = mocker.patch("dotdisplay.sources.fetch_remote_sessions")
     s.read_sessions(cfg)
     fetch.assert_not_called()
+
+
+# --- pruning -----------------------------------------------------------
+
+
+@pytest.fixture
+def prune_cfg(tmp_path):
+    """A state dir with a real parent, so the sibling pointer directory the
+    hook writes to exists in the same shape as on disk."""
+    sessions = tmp_path / "sessions"
+    sessions.mkdir()
+    return dataclasses.replace(Config.from_env(), state_dir=sessions,
+                               hwmon_url="", setup_key="")
+
+
+def _pointer(cfg, slug, name, age_s=0):
+    directory = cfg.state_dir.parent / "current"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{slug}.name"
+    path.write_text(name)
+    if age_s:
+        old = time.time() - age_s
+        os.utime(path, (old, old))
+    return path
+
+
+def test_prune_deletes_long_dead_sessions(prune_cfg):
+    dead = _write(prune_cfg, "ghost", age_s=prune_cfg.prune_after_s + 60)
+    s.prune_local_sessions(prune_cfg)
+    assert not dead.exists()
+
+
+def test_prune_keeps_a_session_that_is_merely_stale(prune_cfg):
+    """Off the board is not gone: a session between the two thresholds keeps
+    its file, so its stages_left survives a quiet stretch."""
+    quiet = _write(prune_cfg, "quiet", stages_left=3,
+                   age_s=prune_cfg.stale_after_s + 60)
+    s.prune_local_sessions(prune_cfg)
+    assert json.loads(quiet.read_text())["stages_left"] == 3
+
+
+def test_prune_reports_how_many_it_removed(prune_cfg):
+    _write(prune_cfg, "a", age_s=prune_cfg.prune_after_s + 60)
+    _write(prune_cfg, "b", age_s=prune_cfg.prune_after_s + 60)
+    _write(prune_cfg, "live")
+    assert s.prune_local_sessions(prune_cfg) == 2
+
+
+def test_prune_removes_dead_pointer_files(prune_cfg):
+    """A pointer outliving its session would let `status --this` resurrect a
+    dead name on the board."""
+    pointer = _pointer(prune_cfg, "_home_x", "ghost",
+                       age_s=prune_cfg.prune_after_s + 60)
+    fresh = _pointer(prune_cfg, "_home_y", "live")
+    s.prune_local_sessions(prune_cfg)
+    assert not pointer.exists()
+    assert fresh.exists()
+
+
+def test_prune_leaves_files_it_does_not_own(prune_cfg):
+    other = prune_cfg.state_dir / "notes.txt"
+    other.write_text("keep me")
+    old = time.time() - (prune_cfg.prune_after_s + 60)
+    os.utime(other, (old, old))
+    s.prune_local_sessions(prune_cfg)
+    assert other.exists()
+
+
+def test_prune_missing_state_directory_is_not_an_error(prune_cfg):
+    cfg = dataclasses.replace(prune_cfg, state_dir=prune_cfg.state_dir / "nope")
+    assert s.prune_local_sessions(cfg) == 0

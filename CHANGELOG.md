@@ -5,6 +5,19 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The daemon now deletes session files that have been dead for six hours
+  (`DOTDISPLAY_PRUNE_AFTER_S`). Nothing ever removed them before: a session
+  whose `SessionEnd` hook does not run -- a crash, a closed terminal, a
+  machine that sleeps -- left a file behind forever, so the state directory
+  grew for as long as the machine was used. Pruning is deliberately far
+  slower than `stale_after_s`: leaving the board after fifteen quiet minutes
+  is a display decision, while deleting the file throws away the session's
+  `stages_left` for good.
+
 ## [0.4.0] - 2026-08-28
 
 ### Changed

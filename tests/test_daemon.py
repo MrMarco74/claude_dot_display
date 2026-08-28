@@ -353,3 +353,31 @@ async def test_a_dead_panel_is_reconnected_by_the_loop(cfg, mocker):
     with contextlib.suppress(asyncio.CancelledError):
         await task
     assert len(connections) > 1
+
+
+async def test_tick_prunes_dead_session_files(cfg, mocker):
+    """The daemon is the only process that owns the state directory's
+    lifecycle, so it is the one that tidies it."""
+    import json
+    import os
+    import time
+    dead = cfg.state_dir / "ghost.json"
+    dead.write_text(json.dumps({"name": "ghost", "status": "running"}))
+    old = time.time() - (cfg.prune_after_s + 60)
+    os.utime(dead, (old, old))
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+
+    await d.tick(cfg, d.Board(), FakePanel())
+
+    assert not dead.exists()
+
+
+async def test_a_failing_prune_does_not_stop_the_board(cfg, mocker):
+    mocker.patch("dotdisplay.daemon.sources.prune_local_sessions",
+                 side_effect=OSError("read-only state dir"))
+    mocker.patch("dotdisplay.daemon.sources.read_sessions",
+                 return_value=[{"name": "a", "status": "running"}])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    panel = FakePanel()
+    assert await d.tick(cfg, d.Board(), panel) is True
+    assert len(panel.images) == 1

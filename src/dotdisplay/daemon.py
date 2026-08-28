@@ -105,6 +105,11 @@ async def tick(config: Config, board: Board, panel) -> bool:
     # Beat here rather than in run(): tick only runs while a panel connection
     # is held, which is exactly the condition the heartbeat advertises.
     _queue.beat(config)
+    try:
+        sources.prune_local_sessions(config)
+    except Exception as exc:              # noqa: BLE001 - housekeeping only
+        # Tidying the state directory is never worth a dark panel.
+        logger.debug("could not prune session files: %s", exc)
     await serve_local_queue(config, panel)
     try:
         image = render_board(config, board)

@@ -64,6 +64,41 @@ def read_local_sessions(config) -> list[dict]:
     return sessions
 
 
+def prune_local_sessions(config) -> int:
+    """Delete session files that have been dead for prune_after_s. Returns
+    how many were removed.
+
+    Sessions leave the board after stale_after_s but keep their file, so a
+    session that goes quiet and comes back still has its stages_left. Nothing
+    ever removed those files, though: a SessionEnd hook that does not run --
+    a crash, a closed terminal, a machine that sleeps -- leaves one behind
+    forever, and the directory grows for as long as the machine is used.
+
+    Called from the daemon loop, never from the read path: `dotdisplay board`
+    reads the same directory from another process, and a read that quietly
+    deletes files is a trap.
+
+    Only files this project writes are touched, and a file that cannot be
+    removed is skipped rather than raised: tidying is never worth stopping
+    the board for.
+    """
+    directory = pathlib.Path(config.state_dir)
+    cutoff = time.time() - config.prune_after_s
+    removed = 0
+    for path in (*directory.glob("*.json"),
+                 *(directory.parent / "current").glob("*.name")):
+        try:
+            if path.stat().st_mtime >= cutoff:
+                continue
+            path.unlink()
+        except OSError as exc:
+            logger.debug("could not prune %s: %s", path.name, exc)
+            continue
+        logger.info("pruned dead session file %s", path.name)
+        removed += 1
+    return removed
+
+
 def _hwmon_headers(config):
     # The User-Agent is not cosmetic: the reverse proxy in front of
     # hwmon-server drops the default "python-requests/x.y" outright, closing
