@@ -43,6 +43,12 @@ jobs:
           echo "tag=$tag package=$pkg"
           test "$tag" = "$pkg"
 
+      # Release notes come from the changelog, so a missing entry must fail
+      # here rather than produce an empty release page after the tag is out.
+      - name: Changelog documents this version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: python scripts/changelog_section.py "$GITHUB_REF_NAME" >/dev/null
+
       - name: Lint
         run: ruff check .
 
@@ -80,3 +86,37 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    # Runs only after PyPI has accepted the upload: a release page pointing
+    # at a version you cannot pip install is worse than a missing one, and
+    # this ordering makes the two publications agree or neither happen.
+    needs: publish
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write          # creates the release and uploads its assets
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Release notes from the changelog
+        run: python scripts/changelog_section.py "$GITHUB_REF_NAME" > notes.md
+
+      # Attaching the same artifacts that went to PyPI lets anyone check the
+      # published wheel against the tagged source.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+              --notes-file notes.md dist/*
+          fi
