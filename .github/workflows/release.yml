@@ -22,9 +22,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -61,7 +61,7 @@ jobs:
       - name: Check the artifacts
         run: twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -80,19 +80,15 @@ jobs:
     permissions:
       id-token: write          # mints the short-lived PyPI credential
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
+      # No `password:` on purpose. With none supplied the action exchanges
+      # the id-token above for a short-lived PyPI credential, which also
+      # re-enables the attestations an explicit password silently disables.
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          # A project-scoped API token, stored as a repository secret and
-          # never in the tree. Trusted publishing (no stored secret at all,
-          # PyPI minting a short-lived credential from the id-token below)
-          # is the better end state: delete this line once it is configured
-          # at pypi.org/manage/project/claude-dot-display/settings/publishing.
-          password: ${{ secrets.PYPI_API_TOKEN }}
 
   github-release:
     # Runs only after PyPI has accepted the upload: a release page pointing
@@ -104,9 +100,9 @@ jobs:
     permissions:
       contents: write          # creates the release and uploads its assets
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
