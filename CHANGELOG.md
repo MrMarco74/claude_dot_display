@@ -5,6 +5,26 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-08-28
+
+### Changed
+
+- Releases reach PyPI through trusted publishing: the workflow exchanges its
+  own OIDC identity for a credential that lives for the length of one upload,
+  so there is no long-lived token in a repository secret to leak or rotate.
+  A side effect is provenance -- the action silently disabled the attestations
+  it uploads alongside the artifacts for as long as an explicit password was
+  set, so wheels from this release on can be traced back to the workflow run
+  and commit that built them.
+- The workflow actions moved to the majors that target Node 24 natively
+  (`checkout@v7`, `setup-python@v7`, `upload-artifact@v7`,
+  `download-artifact@v8`). GitHub was already forcing the old ones onto that
+  runtime and warning on every run; this settles it before the fallback is
+  withdrawn.
+
+Nothing in the package itself changed. This release exists to carry the new
+publishing path, which cannot be exercised without a tag.
+
 ## [0.5.1] - 2026-08-28
 
 ### Fixed
@@ -129,6 +149,9 @@ Initial release.
 - A command queue so one-shot commands still work while the daemon owns the
   radio, a systemd user unit, and an installer.
 
+[0.5.2]: https://github.com/MrMarco74/claude_dot_display/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/MrMarco74/claude_dot_display/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.1.0...v0.2.0
