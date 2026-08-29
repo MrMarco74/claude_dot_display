@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+import time
 from dataclasses import dataclass
 
 from dotdisplay import commands, render, sources
@@ -36,6 +37,7 @@ class PanelUnreachable(RuntimeError):
 class Board:
     """What the loop remembers between ticks."""
     last_sent: bytes | None = None
+    last_sent_at: float = 0.0
     ccusage: CcusageCache | None = None
     send_failures: int = 0
 
@@ -118,7 +120,14 @@ async def tick(config: Config, board: Board, panel) -> bool:
         return False
 
     pixels = image.tobytes()
-    if pixels == board.last_sent:
+    now = time.monotonic()
+    # An unchanged board is normally not worth the radio -- but "unchanged"
+    # is a statement about what we rendered, not about what the panel shows,
+    # and those two only agree if every write landed. Sending the same frame
+    # again on a slow cadence costs one transfer a minute and is the only way
+    # a silently corrupted panel ever recovers.
+    unchanged = pixels == board.last_sent
+    if unchanged and now - board.last_sent_at < config.refresh_after_s:
         return False
 
     try:
@@ -139,10 +148,12 @@ async def tick(config: Config, board: Board, panel) -> bool:
 
     board.send_failures = 0
     board.last_sent = pixels
+    board.last_sent_at = now
     # Logged at INFO on purpose: this is the only externally visible sign that
     # the board changed, and it is what makes "a quiet board sends nothing"
-    # something you can actually check rather than assume.
-    logger.info("panel updated")
+    # something you can actually check rather than assume. A refresh says so
+    # in different words: the board did not move, only the panel was redrawn.
+    logger.info("panel refreshed" if unchanged else "panel updated")
     return True
 
 

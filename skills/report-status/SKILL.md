@@ -25,6 +25,12 @@ never see — so always use `--this` rather than guessing a name.
 `--left` is the number of stages still to go when you are working through a
 plan with stages. Omit it when there is no meaningful count. Never invent one.
 
+**You usually do not need it.** The `PostToolUse` hook reads your todo list
+on every `TodoWrite` and derives the count, what you are currently doing and
+the open items from it. If you are working from a todo list, the board
+already knows: report `--left` only for a plan the todo list does not hold,
+and it overrides the derived count until the next `TodoWrite`.
+
 A count you report **persists** across later writes, including the `running`
 that every prompt fires, so you only have to report it when it changes. See
 *Counting stages* below for what may be counted, and how to retract a count.
@@ -36,7 +42,8 @@ that every prompt fires, so you only have to report it when it changes. See
 - **`issue`** — when you hit a blocker you cannot resolve alone.
 - **`done`** — when you finish. The next prompt sets the state back to
   `running` automatically, so you do not need to undo it.
-- **the stage count** — whenever it changes, while you keep working:
+- **the stage count** — only when no todo list covers it, whenever it
+  changes, while you keep working:
 
       dotdisplay status --this --state running --left 4
 

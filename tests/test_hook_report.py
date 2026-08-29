@@ -168,3 +168,98 @@ def test_an_unreadable_session_file_still_reports(tmp_path):
 
     _run(payload, ["running"], dict(env))
     assert json.loads(path.read_text())["status"] == "running"
+
+
+def _todos(*items):
+    """A TodoWrite PostToolUse payload. status is one of pending,
+    in_progress, completed; activeForm is the present-tense phrasing."""
+    return {"cwd": "/home/x/hwmon", "session_id": "aa11",
+            "tool_name": "TodoWrite",
+            "tool_input": {"todos": [
+                {"content": c, "status": s, "activeForm": a}
+                for c, s, a in items]}}
+
+
+def _body(tmp_path):
+    return json.loads((tmp_path / "hwmon-aa.json").read_text())
+
+
+def test_a_todo_list_becomes_the_stage_count(tmp_path):
+    """The count was only ever written when the assistant chose to report it,
+    which in practice never happened -- the column stayed empty for every
+    session forever. The todo list is the same information, already on the
+    wire, and needs nobody to remember anything."""
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"], dict(env))
+    _run(_todos(("Fix the transport", "completed", "Fixing the transport"),
+                ("Refresh the panel", "in_progress", "Refreshing the panel"),
+                ("Update the docs", "pending", "Updating the docs")),
+         ["--beat"], dict(env))
+
+    body = _body(tmp_path)
+    assert body["stages_left"] == 2
+    assert body["stages_total"] == 3
+    assert body["activity"] == "Refreshing the panel"
+    assert body["tasks"] == ["Refresh the panel", "Update the docs"]
+    assert body["status"] == "running"      # a beat never states a status
+
+
+def test_finishing_every_todo_retracts_the_count(tmp_path):
+    """An unretracted count outlives its plan and keeps advertising a number
+    that is no longer true."""
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"], dict(env))
+    _run(_todos(("One", "in_progress", "Doing one")), ["--beat"], dict(env))
+    _run(_todos(("One", "completed", "Doing one")), ["--beat"], dict(env))
+
+    body = _body(tmp_path)
+    assert "stages_left" not in body
+    assert "activity" not in body
+    assert "tasks" not in body
+
+
+def test_a_beat_from_another_tool_leaves_the_count_alone(tmp_path):
+    """Every tool call beats. Only TodoWrite says anything about stages."""
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"], dict(env))
+    _run(_todos(("One", "pending", "Doing one")), ["--beat"], dict(env))
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11", "tool_name": "Bash"},
+         ["--beat"], dict(env))
+    assert _body(tmp_path)["stages_left"] == 1
+
+
+def test_a_prompt_keeps_the_tasks_it_did_not_mention(tmp_path):
+    """UserPromptSubmit fires 'running' on every prompt. A prompt is a
+    statement about the state, not about the work still on the list."""
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"], dict(env))
+    _run(_todos(("One", "in_progress", "Doing one")), ["--beat"], dict(env))
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"], dict(env))
+
+    body = _body(tmp_path)
+    assert body["stages_left"] == 1
+    assert body["activity"] == "Doing one"
+    assert body["tasks"] == ["One"]
+
+
+def test_task_text_is_bounded_and_stripped_of_control_bytes(tmp_path):
+    """Todo text is model-authored and lands in a terminal. An escape
+    sequence in it would be executed by the terminal drawing the board."""
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run({"cwd": "/home/x/hwmon", "session_id": "aa11"}, ["running"], dict(env))
+    _run(_todos((f"\x1b[31mred\x07 {'x' * 500}", "in_progress", "\x1bDoing")),
+         ["--beat"], dict(env))
+
+    body = _body(tmp_path)
+    assert "\x1b" not in body["tasks"][0] and "\x07" not in body["tasks"][0]
+    assert len(body["tasks"][0]) <= 120
+    assert body["activity"] == "Doing"
+
+
+def test_a_beat_still_only_touches_freshness_without_a_session_file(tmp_path):
+    """Self-healing: a session whose SessionStart hook did not run joins the
+    board on its first tool call, with whatever the todo list says."""
+    env = {"DOTDISPLAY_STATE_DIR": str(tmp_path), "HOME": str(tmp_path)}
+    _run(_todos(("One", "pending", "Doing one")), ["--beat"], dict(env))
+    body = _body(tmp_path)
+    assert body["status"] == "running" and body["stages_left"] == 1

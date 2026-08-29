@@ -381,3 +381,42 @@ async def test_a_failing_prune_does_not_stop_the_board(cfg, mocker):
     panel = FakePanel()
     assert await d.tick(cfg, d.Board(), panel) is True
     assert len(panel.images) == 1
+
+
+async def test_an_unchanged_board_is_refreshed_eventually(cfg, mocker):
+    """A silently corrupted panel must heal itself.
+
+    Image writes go out without response, so a dropped chunk raises nothing:
+    the panel keeps a frame with a third of it missing while the daemon
+    believes it is showing the current board. Because 'unchanged' meant
+    'never send again', that state survived until session state happened to
+    move -- observed as a panel stuck on its bottom rows.
+    """
+    mocker.patch("dotdisplay.daemon.sources.read_sessions",
+                 return_value=[{"name": "a", "status": "running"}])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    clock = mocker.patch("dotdisplay.daemon.time")
+    clock.monotonic.side_effect = [0.0, 10.0, 10.0 + cfg.refresh_after_s]
+    panel, board = FakePanel(), d.Board()
+
+    assert await d.tick(cfg, board, panel) is True     # t=0, first frame
+    assert await d.tick(cfg, board, panel) is False    # t=10, still fresh
+    assert await d.tick(cfg, board, panel) is True     # refresh window passed
+    assert len(panel.images) == 2
+
+
+async def test_a_refresh_is_not_logged_as_a_change(cfg, mocker, caplog):
+    """'panel updated' is how a human checks that the board moved. A periodic
+    resend of the same pixels has not moved it and must not say so."""
+    import logging
+    mocker.patch("dotdisplay.daemon.sources.read_sessions",
+                 return_value=[{"name": "a", "status": "running"}])
+    mocker.patch("dotdisplay.daemon.sources.read_header", return_value=None)
+    clock = mocker.patch("dotdisplay.daemon.time")
+    clock.monotonic.side_effect = [0.0, cfg.refresh_after_s]
+    panel, board = FakePanel(), d.Board()
+    await d.tick(cfg, board, panel)
+    with caplog.at_level(logging.INFO, logger="dotdisplay.daemon"):
+        await d.tick(cfg, board, panel)
+    assert "panel updated" not in caplog.text
+    assert "refreshed" in caplog.text

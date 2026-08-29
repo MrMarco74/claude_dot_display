@@ -70,6 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
     board = sub.add_parser("board", help="show the board in this terminal")
     board.add_argument("--watch", action="store_true", help="redraw until Ctrl-C")
     board.add_argument("--no-colour", action="store_true")
+    board.add_argument("--tasks", action="store_true",
+                       help="list each session's open tasks under its row")
 
     status_line = sub.add_parser(
         "statusline", help="one short line for a prompt or status bar")
@@ -141,11 +143,15 @@ def _cmd_status(args) -> int:
         return 1
 
     body = {"name": args.name, "status": args.state}
+    carried = _carried_stages(path)
     if args.left is None:
         # Saying nothing about the stages is not the same as saying there
         # are none: keep whatever the last writer reported.
-        body.update(_carried_stages(path))
+        body.update(carried)
     elif args.left > 0:
+        # An explicit count overrides the derived one but keeps the rest of
+        # the progress: the activity is still true.
+        body.update({k: v for k, v in carried.items() if k != "stages_total"})
         body["stages_left"] = args.left
     # --left 0 falls through, dropping the key: with the count now surviving
     # every other write, this is the only way to retract one, and "no stages
@@ -159,12 +165,21 @@ def _cmd_status(args) -> int:
     return 0
 
 
+# Progress is derived from the session's todo list by the PostToolUse hook.
+# A status write must carry all of it, not just the count: reporting
+# `question` would otherwise drop what the session is doing and what is left
+# on its list, which is exactly when a human most wants to see them.
+PROGRESS_KEYS = ("stages_left", "stages_total", "activity", "tasks")
+
+
 def _carried_stages(path) -> dict:
-    """The stage count already on file, if any. Unreadable means none."""
+    """The progress already on file, if any. Unreadable means none."""
     try:
         body = json.loads(path.read_text())
-        left = body.get("stages_left") if isinstance(body, dict) else None
-        return {} if left is None else {"stages_left": left}
+        if not isinstance(body, dict):
+            return {}
+        return {key: body[key] for key in PROGRESS_KEYS
+                if body.get(key) is not None}
     except (OSError, ValueError):
         return {}
 
@@ -357,7 +372,8 @@ def _cmd_board(args) -> int:
         sessions = sources.read_local_sessions(config)
         stats = ({} if sessions
                  else sources.ccusage_stats(config, sources.CcusageCache()))
-        out = presenter.board(sessions, sources.read_header(), stats)
+        out = presenter.board(sessions, sources.read_header(), stats,
+                              tasks=args.tasks)
         if colour:
             for state, code in presenter.STATE_COLOURS.items():
                 word = presenter.STATE_WORDS[state]

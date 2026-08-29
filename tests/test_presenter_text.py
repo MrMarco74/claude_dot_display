@@ -138,3 +138,84 @@ def test_named_sessions_are_alphabetical():
         {"name": "alpha", "status": "issue"},
     ])
     assert line.index("alpha") < line.index("zulu")
+
+
+WORKING = [
+    {"name": "hwmon-d7", "status": "running", "stages_left": 3,
+     "stages_total": 7, "activity": "Refreshing the panel",
+     "tasks": ["Refresh the panel", "Update the docs", "Release"]},
+    {"name": "storygen", "status": "question", "stages_left": 1,
+     "stages_total": 4, "activity": "Waiting for the key"},
+]
+
+
+def test_board_says_what_each_session_is_doing():
+    """A row of names and the word 'running' answers nothing a human asks
+    from across the room. What it is doing, and how much is left, does."""
+    out = t.board(WORKING, HEADER, {})
+    row = [ln for ln in out.splitlines() if "hwmon-d7" in ln][0]
+    assert "3/7" in row
+    assert "Refreshing the panel" in row
+
+
+def test_board_omits_the_activity_column_when_nothing_reports_one():
+    """Sessions predating the todo hook must not pay for an empty column."""
+    out = t.board(SESSIONS, HEADER, {})
+    assert max(len(ln) for ln in out.splitlines()) <= t.WIDTH
+
+
+def test_board_still_shows_a_bare_count_without_a_total():
+    """`dotdisplay status --left 3` reports a count and no total."""
+    out = t.board([{"name": "a", "status": "running", "stages_left": 3}],
+                  HEADER, {})
+    assert "3" in [p for p in out.splitlines()[-1].split()][-1]
+
+
+def test_board_lists_the_open_tasks_on_request():
+    out = t.board(WORKING, HEADER, {}, tasks=True)
+    assert "Update the docs" in out
+    assert "Release" in out
+    # The task list belongs to its session, so it follows that row.
+    lines = out.splitlines()
+    assert lines.index("  · Update the docs") > lines.index(
+        [ln for ln in lines if "hwmon-d7" in ln][0])
+
+
+def test_board_without_tasks_requested_stays_one_line_per_session():
+    out = t.board(WORKING, HEADER, {})
+    assert "Update the docs" not in out
+
+
+def test_long_activity_never_widens_the_board_past_a_terminal():
+    out = t.board([{"name": "a", "status": "running",
+                    "activity": "Doing " + "something " * 20}], HEADER, {})
+    assert max(len(ln) for ln in out.splitlines()) <= 80
+
+
+def test_statusline_carries_the_progress_of_a_working_session():
+    """'*9' says nine sessions exist. It does not say that one of them is
+    three stages from done, which is the thing worth glancing at."""
+    line = t.statusline(WORKING)
+    assert "hwmon-d7:3/7" in line
+    assert "?storygen:1/4" in line
+
+
+def test_statusline_still_counts_sessions_with_nothing_to_report():
+    """A running session with no plan is not worth a name."""
+    line = t.statusline([
+        {"name": "a", "status": "running", "stages_left": 2,
+         "stages_total": 3},
+        {"name": "b", "status": "running"},
+        {"name": "c", "status": "running"},
+    ])
+    assert "a:2/3" in line
+    assert "*2" in line              # b and c stay a count
+    assert "b" not in line.replace("a:2/3", "")
+
+
+def test_statusline_with_progress_still_falls_back_to_counts(sample=None):
+    many = [{"name": f"long-session-name-{i}", "status": "running",
+             "stages_left": 3, "stages_total": 9} for i in range(6)]
+    line = t.statusline(many)
+    assert len(line) <= t.STATUSLINE_MAX
+    assert line == "*6"

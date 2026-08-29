@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 RATE_LIMIT_PATH = pathlib.Path.home() / ".claude" / "abtop-rate-limits.json"
 TREND_PATH = pathlib.Path.home() / ".cache" / "dotdisplay-trends.json"
 VALID_STATUSES = ("running", "question", "issue", "done")
+MAX_TASKS = 12
+MAX_TEXT = 120
 HTTP_TIMEOUT_S = 10
 USER_AGENT = "claude-dot-display/1.0"
 
@@ -58,10 +60,32 @@ def read_local_sessions(config) -> list[dict]:
             logger.debug("skipping %s: name/status missing or unknown", path.name)
             continue
         entry = {"name": str(name), "status": status}
-        if body.get("stages_left") is not None:
-            entry["stages_left"] = body["stages_left"]
+        entry.update(_progress(body))
         sessions.append(entry)
     return sessions
+
+
+def _progress(body: dict) -> dict:
+    """The optional progress fields, kept only where they are the right shape.
+
+    These are written by hooks/report.py, which ships with the plugin and is
+    updated independently of the daemon. A session running an older or newer
+    hook must still reach the board -- dropping one field is a cost the
+    reader can absorb, dropping the session is not.
+    """
+    out = {}
+    for key in ("stages_left", "stages_total"):
+        value = body.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            out[key] = value
+    if isinstance(body.get("activity"), str):
+        out["activity"] = body["activity"][:MAX_TEXT]
+    tasks = body.get("tasks")
+    if isinstance(tasks, list):
+        kept = [task[:MAX_TEXT] for task in tasks if isinstance(task, str)]
+        if kept:
+            out["tasks"] = kept[:MAX_TASKS]
+    return out
 
 
 def prune_local_sessions(config) -> int:

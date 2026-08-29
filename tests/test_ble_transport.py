@@ -67,3 +67,34 @@ async def test_split_respects_a_narrowed_write_limit():
 
 async def test_default_write_limit_is_the_captured_size():
     assert t.FakeTransport().max_write == t.MAX_WRITE == 509
+
+
+async def test_pacing_spans_consecutive_frames(mocker):
+    """The gap between two frames is a write boundary like any other.
+
+    send_image calls send() once per chunk, so pacing that resets per frame
+    leaves the first write of every chunk unpaced -- three unpaced writes in
+    a row at exactly the boundaries where the panel was observed dropping
+    data, which shows up as a frame with a third of it missing.
+    """
+    sleep = mocker.patch("dotdisplay.ble.transport.asyncio.sleep")
+    fake = t.FakeTransport(pacing_s=0.01)
+    await fake.connect()
+    await fake.send(bytes(600))       # 2 writes
+    await fake.send(bytes(600))       # 2 writes
+    assert sleep.await_count == len(fake.writes) - 1 == 3
+
+
+async def test_pacing_is_skipped_when_the_panel_has_had_its_rest(mocker):
+    """Pacing protects the panel from a burst, not from the poll loop. A
+    write arriving long after the last one must not wait for nothing."""
+    sleep = mocker.patch("dotdisplay.ble.transport.asyncio.sleep")
+    # The whole module object, not time.monotonic: that attribute is shared
+    # with the event loop, and patching it there breaks asyncio itself.
+    clock = mocker.patch("dotdisplay.ble.transport.time")
+    clock.monotonic.side_effect = [0.0, 10.0]
+    fake = t.FakeTransport(pacing_s=0.01)
+    await fake.connect()
+    await fake.send(bytes(100))
+    await fake.send(bytes(100))
+    sleep.assert_not_awaited()

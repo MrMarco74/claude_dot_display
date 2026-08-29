@@ -40,3 +40,18 @@ def test_prune_is_slower_than_staleness_by_default(monkeypatch):
 def test_prune_after_s_is_configurable(monkeypatch):
     monkeypatch.setenv("DOTDISPLAY_PRUNE_AFTER_S", "60")
     assert Config.from_env().prune_after_s == 60.0
+
+
+def test_the_refresh_cadence_is_configurable(monkeypatch):
+    monkeypatch.setenv("DOTDISPLAY_REFRESH_AFTER_S", "30")
+    assert Config.from_env().refresh_after_s == 30.0
+
+
+def test_the_refresh_is_slower_than_the_poll_by_default(monkeypatch):
+    """Refreshing every tick would hold the radio for nothing; refreshing
+    never is what left a silently corrupted panel standing."""
+    for key in list(os.environ):
+        if key.startswith("DOTDISPLAY_"):
+            monkeypatch.delenv(key, raising=False)
+    cfg = Config.from_env()
+    assert cfg.poll_s < cfg.refresh_after_s < cfg.stale_after_s

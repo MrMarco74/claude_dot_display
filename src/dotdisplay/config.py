@@ -10,6 +10,11 @@ from dataclasses import dataclass, field
 
 DEFAULT_POLL_S = 5.0
 DEFAULT_CCUSAGE_REFRESH_S = 300.0
+# How long an unchanged board may stand before it is sent again. Image writes
+# go out without response, so a dropped chunk is invisible to us: the panel
+# keeps a partly-drawn frame and nothing ever contradicts it. Re-sending on a
+# slow cadence is the only thing that can heal that.
+DEFAULT_REFRESH_AFTER_S = 60.0
 DEFAULT_STALE_AFTER_S = 900.0
 # Deliberately much slower than staleness: coming off the board is a
 # display decision, deleting the file throws away stages_left for good.
@@ -29,6 +34,7 @@ class Config:
     setup_key: str = ""          # secret; environment only, never the repo
     poll_s: float = DEFAULT_POLL_S
     ccusage_refresh_s: float = DEFAULT_CCUSAGE_REFRESH_S
+    refresh_after_s: float = DEFAULT_REFRESH_AFTER_S
     stale_after_s: float = DEFAULT_STALE_AFTER_S
     prune_after_s: float = DEFAULT_PRUNE_AFTER_S
     state_dir: pathlib.Path = field(default_factory=_default_state_dir)
@@ -45,6 +51,8 @@ class Config:
             poll_s=float(env("DOTDISPLAY_POLL_S", DEFAULT_POLL_S)),
             ccusage_refresh_s=float(
                 env("DOTDISPLAY_CCUSAGE_REFRESH_S", DEFAULT_CCUSAGE_REFRESH_S)),
+            refresh_after_s=float(
+                env("DOTDISPLAY_REFRESH_AFTER_S", DEFAULT_REFRESH_AFTER_S)),
             stale_after_s=float(
                 env("DOTDISPLAY_STALE_AFTER_S", DEFAULT_STALE_AFTER_S)),
             prune_after_s=float(

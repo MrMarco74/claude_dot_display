@@ -228,3 +228,25 @@ def test_prune_leaves_files_it_does_not_own(prune_cfg):
 def test_prune_missing_state_directory_is_not_an_error(prune_cfg):
     cfg = dataclasses.replace(prune_cfg, state_dir=prune_cfg.state_dir / "nope")
     assert s.prune_local_sessions(cfg) == 0
+
+
+def test_progress_fields_reach_the_board(cfg):
+    (cfg.state_dir).mkdir(parents=True, exist_ok=True)
+    (cfg.state_dir / "a.json").write_text(json.dumps(
+        {"name": "a", "status": "running", "stages_left": 2,
+         "stages_total": 5, "activity": "Doing a thing",
+         "tasks": ["one", "two"]}))
+    assert s.read_local_sessions(cfg) == [
+        {"name": "a", "status": "running", "stages_left": 2,
+         "stages_total": 5, "activity": "Doing a thing",
+         "tasks": ["one", "two"]}]
+
+
+def test_progress_of_the_wrong_shape_is_dropped_not_fatal(cfg):
+    """These fields are written by a hook that may be any version, and a
+    session that reports nonsense must still appear on the board."""
+    (cfg.state_dir).mkdir(parents=True, exist_ok=True)
+    (cfg.state_dir / "a.json").write_text(json.dumps(
+        {"name": "a", "status": "running", "stages_left": "lots",
+         "activity": {"not": "a string"}, "tasks": "not a list"}))
+    assert s.read_local_sessions(cfg) == [{"name": "a", "status": "running"}]

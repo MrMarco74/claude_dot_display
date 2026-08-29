@@ -7,6 +7,7 @@ and hardware-free.
 
 import asyncio
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,12 @@ MAX_WRITE = 509
 # The panel drops data when written to as fast as the stack allows. The
 # vendor app paces roughly 32ms between writes; this default is deliberately
 # conservative and gets tuned against hardware.
+#
+# Measured against the wall clock, not counted per frame: a full image is
+# three separate send() calls, and pacing that restarted with each of them
+# left the first write of every chunk unpaced. Writes without response fail
+# silently, so those dropped chunks reached the panel as a frame with a
+# third of it missing and nothing in the log.
 DEFAULT_PACING_S = 0.03
 
 # PLACEHOLDER -- the captures record the ATT handle (0x0006), not the UUID,
@@ -34,6 +41,9 @@ class BaseTransport:
         self.connected = False
         # Narrowed to the negotiated MTU on connect; see BleakTransport.
         self.max_write = MAX_WRITE
+        # When the last ATT write went out, so pacing survives the boundary
+        # between one send() and the next. None means "nothing written yet".
+        self._last_write_at: float | None = None
 
     async def connect(self) -> None:
         self.connected = True
@@ -47,10 +57,24 @@ class BaseTransport:
             raise NotConnected("connect() first")
         limit = self.max_write
         parts = [frame[i: i + limit] for i in range(0, len(frame), limit)]
-        for index, part in enumerate(parts):
-            if index and self.pacing_s:
-                await asyncio.sleep(self.pacing_s)
+        for part in parts:
+            await self._pace()
             await self._write(part)
+
+    async def _pace(self) -> None:
+        """Wait until the panel has had pacing_s since the last write.
+
+        Deliberately not "sleep between writes": the poll loop leaves seconds
+        between frames, and a burst is the only thing the panel objects to.
+        """
+        if not self.pacing_s:
+            return
+        now = time.monotonic()
+        if self._last_write_at is not None:
+            remaining = self.pacing_s - (now - self._last_write_at)
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+        self._last_write_at = now
 
     async def _write(self, part: bytes) -> None:
         raise NotImplementedError

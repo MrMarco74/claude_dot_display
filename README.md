@@ -38,17 +38,38 @@ BLE protocol, usable on its own.
 needs Bluetooth, an address, or the daemon.
 
 ```
-claude-dot-display            38% · reset 22:10
-───────────────────────────────────────────────
-● a-very-long-session waiting on you          3
-● hwmon-d7            issue                   7
-● kolonial            done                    0
-● storygen            running                12
+claude-dot-display                                   38% · reset 22:10
+──────────────────────────────────────────────────────────────────────
+● hwmon-d7          running               3/7  Refreshing the panel
+● kolonial          running                  
+● storygen          waiting on you        1/4  Waiting for the API key
 ```
 
 The terminal view is not a mirror of the panel. Nine-character names, the 8px
 font and the four-row budget are consequences of a 64x64 LED matrix; a
-terminal has none of them, so it shows full names and spells the states out.
+terminal has none of them, so it shows full names, spells the states out, and
+has room for what each session is actually doing.
+
+That last column comes from the session's own todo list — no session has to
+remember to report anything. `dotdisplay board --tasks` lists the open items
+under each row:
+
+```
+● hwmon-d7          running               3/7  Refreshing the panel
+  · Refresh the panel on a cadence
+  · Update the docs
+  · Cut the release
+```
+
+`dotdisplay statusline` names the sessions that have something to say and
+counts the rest:
+
+```
+?storygen:1/4 *hwmon-d7:3/7 *1
+```
+
+A session waiting on you is named because that is actionable; one merely
+running earns a name only by having a plan to show with it.
 
 To put the summary in Claude Code's status line, add to your `settings.json`:
 
