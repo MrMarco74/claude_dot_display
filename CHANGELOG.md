@@ -5,6 +5,48 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-29
+
+### Fixed
+
+- The panel no longer keeps a frame with a third of it missing. A full image
+  is three chunks and 27 ATT writes, but pacing was counted per `send()`
+  call, so the first write of every chunk went out with no gap at all --
+  exactly the boundaries where the panel was observed dropping data. Pacing
+  is now measured against the clock and spans the whole transfer. Writes go
+  out without response, so a dropped one raises nothing: the symptom was a
+  board showing only its bottom rows, with `panel updated` in the log.
+- An unchanged board is re-sent once a minute
+  (`DOTDISPLAY_REFRESH_AFTER_S`). "Unchanged" was a statement about what we
+  rendered, not about what the panel shows, and those only agree if every
+  write landed -- so a corrupted frame used to stand until session state
+  happened to move. A refresh logs `panel refreshed` rather than
+  `panel updated`, so the log still says whether the board actually moved.
+
+### Added
+
+- The stage count is derived from the session's own todo list. The
+  `PostToolUse` hook reads `TodoWrite` and records how many items are open,
+  how many there are in total, what the session is doing right now, and the
+  open items themselves. The count previously existed only if the assistant
+  remembered to report one, which in practice meant it never existed: not one
+  session file on the author's machine had ever carried a count.
+- `dotdisplay board` shows what each session is doing and its progress as
+  `3/7`, and `dotdisplay board --tasks` lists the open items under each row.
+  A column of names and the word `running` answered nothing that could not be
+  answered by looking at the terminal.
+- `dotdisplay statusline` names the sessions that have something to report --
+  `?storygen:1/4 *hwmon-d7:3/7 *1` -- instead of only `*9`. A session waiting
+  on you is named because that is actionable; one merely running earns a name
+  only by having a plan to show with it.
+
+### Changed
+
+- Reporting a state no longer discards the progress. `dotdisplay status
+  --this --state question` used to carry only the count forward, which
+  dropped the activity and the task list at the one moment a human most wants
+  to see them.
+
 ## [0.5.2] - 2026-08-28
 
 ### Changed
@@ -149,6 +191,7 @@ Initial release.
 - A command queue so one-shot commands still work while the daemon owns the
   radio, a systemd user unit, and an installer.
 
+[0.6.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/MrMarco74/claude_dot_display/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/MrMarco74/claude_dot_display/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/MrMarco74/claude_dot_display/compare/v0.4.0...v0.5.0
